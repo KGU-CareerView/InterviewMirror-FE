@@ -1,0 +1,135 @@
+<script setup>
+import { ref } from 'vue';
+import { useRouter } from 'vue-router';
+
+const router = useRouter();
+const selectedJobId = ref(null);
+
+function selectJob(event, id) {
+  document.querySelectorAll('.job-card').forEach((card) => {
+    card.classList.remove('border-brand', 'bg-white', 'shadow-md');
+    card.classList.add('border-slate-50', 'bg-slate-50');
+
+    const iconBg = card.querySelector('div');
+    iconBg?.classList.remove('bg-brandLight', 'text-brand');
+    iconBg?.classList.add('bg-white', 'text-slate-400');
+
+    const icon = iconBg?.querySelector('svg');
+    icon?.classList.remove('text-brand');
+    icon?.classList.add('text-slate-400');
+  });
+
+  const btn = event.currentTarget;
+  btn.classList.remove('border-slate-50', 'bg-slate-50');
+  btn.classList.add('border-brand', 'bg-white', 'shadow-md');
+
+  const iconBg = btn.querySelector('div');
+  iconBg?.classList.remove('bg-white', 'text-slate-400');
+  iconBg?.classList.add('bg-brandLight', 'text-brand');
+
+  const icon = iconBg?.querySelector('svg');
+  icon?.classList.remove('text-slate-400');
+  icon?.classList.add('text-brand');
+
+  selectedJobId.value = id;
+}
+
+function submitJob() {
+  if (selectedJobId.value) {
+    router.push('/interview-setup.html');
+  }
+}
+</script>
+
+<template>
+  <main class="bg-slate-50 min-h-screen flex items-center justify-center p-4">
+    <div class="bg-white shadow-2xl rounded-[2.5rem] flex flex-col max-w-sm sm:max-w-md w-full overflow-hidden h-[85vh] sm:h-[90vh]">
+    
+        <div class="px-6 pt-8 pb-4 text-center">
+            <div class="flex justify-center mb-4">
+                <div class="w-6 h-1.5 rounded-full bg-brand mx-1 transition-all"></div>
+                <div class="w-2 h-1.5 rounded-full bg-slate-200 mx-1 transition-all"></div>
+            </div>
+    
+            <h1 class="text-2xl font-bold text-slate-800 mb-1.5 tracking-tight leading-tight">어떤 직무로<br>준비하시나요?</h1>
+            <p class="text-slate-400 text-[11px] font-medium">선택한 직무에 맞는 질문이 제공됩니다.</p>
+        </div>
+    
+        <div class="flex-grow px-5 pt-4 pb-2 flex flex-col justify-center overflow-y-auto">
+            <div class="grid grid-cols-2 gap-2.5">
+    
+                <button class="job-card group flex flex-col items-center text-center p-3 rounded-2xl border-2 border-slate-50 bg-slate-50 transition-all hover:bg-white hover:border-brand/30" @click="selectJob($event, 'dev')">
+                    <div class="w-8 h-8 rounded-lg bg-white shadow-sm flex items-center justify-center mb-2 group-hover:bg-brandLight transition-colors">
+                        <svg class="w-4 h-4 text-slate-400 group-hover:text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path></svg>
+                    </div>
+                    <span class="text-[13px] font-bold text-slate-700 mb-0.5">개발</span>
+                    <span class="text-[9px] text-slate-400 font-medium">백엔드/프론트</span>
+                </button>
+    
+                <button class="job-card group flex flex-col items-center text-center p-3 rounded-2xl border-2 border-slate-50 bg-slate-50 transition-all hover:bg-white hover:border-brand/30" @click="selectJob($event, 'pm')">
+                    <div class="w-8 h-8 rounded-lg bg-white shadow-sm flex items-center justify-center mb-2 group-hover:bg-brandLight transition-colors">
+                        <svg class="w-4 h-4 text-slate-400 group-hover:text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                    </div>
+                    <span class="text-[13px] font-bold text-slate-700 mb-0.5">기획/PM</span>
+                    <span class="text-[9px] text-slate-400 font-medium">서비스 기획</span>
+                </button>
+    
+                <button class="job-card group flex flex-col items-center text-center p-3 rounded-2xl border-2 border-slate-50 bg-slate-50 transition-all hover:bg-white hover:border-brand/30" @click="selectJob($event, 'design')">
+                    <div class="w-8 h-8 rounded-lg bg-white shadow-sm flex items-center justify-center mb-2 group-hover:bg-brandLight transition-colors">
+                        <svg class="w-4 h-4 text-slate-400 group-hover:text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"></path></svg>
+                    </div>
+                    <span class="text-[13px] font-bold text-slate-700 mb-0.5">디자인</span>
+                    <span class="text-[9px] text-slate-400 font-medium">UI/UX 디자인</span>
+                </button>
+    
+                <button class="job-card group flex flex-col items-center text-center p-3 rounded-2xl border-2 border-slate-50 bg-slate-50 transition-all hover:bg-white hover:border-brand/30" @click="selectJob($event, 'strategy')">
+                    <div class="w-8 h-8 rounded-lg bg-white shadow-sm flex items-center justify-center mb-2 group-hover:bg-brandLight transition-colors">
+                        <svg class="w-4 h-4 text-slate-400 group-hover:text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg>
+                    </div>
+                    <span class="text-[13px] font-bold text-slate-700 mb-0.5">경영/전략</span>
+                    <span class="text-[9px] text-slate-400 font-medium">컨설팅/전략</span>
+                </button>
+    
+                <button class="job-card group flex flex-col items-center text-center p-3 rounded-2xl border-2 border-slate-50 bg-slate-50 transition-all hover:bg-white hover:border-brand/30" @click="selectJob($event, 'hr')">
+                    <div class="w-8 h-8 rounded-lg bg-white shadow-sm flex items-center justify-center mb-2 group-hover:bg-brandLight transition-colors">
+                        <svg class="w-4 h-4 text-slate-400 group-hover:text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+                    </div>
+                    <span class="text-[13px] font-bold text-slate-700 mb-0.5">인사/채용</span>
+                    <span class="text-[9px] text-slate-400 font-medium">HR/조직문화</span>
+                </button>
+    
+                <button class="job-card group flex flex-col items-center text-center p-3 rounded-2xl border-2 border-slate-50 bg-slate-50 transition-all hover:bg-white hover:border-brand/30" @click="selectJob($event, 'data')">
+                    <div class="w-8 h-8 rounded-lg bg-white shadow-sm flex items-center justify-center mb-2 group-hover:bg-brandLight transition-colors">
+                        <svg class="w-4 h-4 text-slate-400 group-hover:text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+                    </div>
+                    <span class="text-[13px] font-bold text-slate-700 mb-0.5">데이터/AI</span>
+                    <span class="text-[9px] text-slate-400 font-medium">분석/머신러닝</span>
+                </button>
+    
+                <button class="job-card group flex flex-col items-center text-center p-3 rounded-2xl border-2 border-slate-50 bg-slate-50 transition-all hover:bg-white hover:border-brand/30" @click="selectJob($event, 'finance')">
+                    <div class="w-8 h-8 rounded-lg bg-white shadow-sm flex items-center justify-center mb-2 group-hover:bg-brandLight transition-colors">
+                        <svg class="w-4 h-4 text-slate-400 group-hover:text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    </div>
+                    <span class="text-[13px] font-bold text-slate-700 mb-0.5">재무/회계</span>
+                    <span class="text-[9px] text-slate-400 font-medium">회계/투자</span>
+                </button>
+    
+                <button class="job-card group flex flex-col items-center text-center p-3 rounded-2xl border-2 border-slate-50 bg-slate-50 transition-all hover:bg-white hover:border-brand/30" @click="selectJob($event, 'etc')">
+                    <div class="w-8 h-8 rounded-lg bg-white shadow-sm flex items-center justify-center mb-2 group-hover:bg-brandLight transition-colors">
+                        <svg class="w-4 h-4 text-slate-400 group-hover:text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h.01M12 12h.01M19 12h.01M6 12a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0z"></path></svg>
+                    </div>
+                    <span class="text-[13px] font-bold text-slate-700 mb-0.5">기타 직무</span>
+                    <span class="text-[9px] text-slate-400 font-medium">모든 공통 직무</span>
+                </button>
+    
+            </div>
+        </div>
+    
+        <div class="p-5 bg-white border-t border-slate-50 mt-auto">
+            <button id="nextBtn" :disabled="!selectedJobId" @click="submitJob" class="w-full py-3.5 bg-brand text-white text-sm font-bold rounded-2xl shadow-lg shadow-brand/20 transition-all duration-300 disabled:opacity-30 disabled:grayscale hover:bg-brandHover transform active:scale-95">
+                다음으로
+            </button>
+        </div>
+    </div>
+  </main>
+</template>
