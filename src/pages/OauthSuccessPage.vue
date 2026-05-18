@@ -14,14 +14,14 @@ onMounted(() => {
     statusTitle.value = '로그인 오류';
     statusDesc.value = '올바르지 않은 접근입니다. 로그인 창으로 돌아갑니다.';
     hasError.value = true;
-    window.setTimeout(() => router.push('/login.html'), 2000);
+    window.setTimeout(() => router.push('/login'), 2000);
     return;
   }
 
   window.setTimeout(() => {
     localStorage.setItem('accessToken', 'mock_google_access_token_abcde');
     localStorage.setItem('refreshToken', 'mock_google_refresh_token_fghij');
-    router.push('/job-select.html');
+    router.push('/job-select');
   }, 1500);
 });
 </script>

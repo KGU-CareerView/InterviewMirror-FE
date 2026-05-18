@@ -36,7 +36,7 @@ function selectJob(event, id) {
 
 function submitJob() {
   if (selectedJobId.value) {
-    router.push('/interview-setup.html');
+    router.push('/interview-setup');
   }
 }
 </script>

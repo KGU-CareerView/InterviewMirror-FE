@@ -4,11 +4,11 @@ import { useRouter } from 'vue-router';
 const router = useRouter();
 
 function goToHome() {
-  router.push('/home.html');
+  router.push('/home');
 }
 
 function goToReport() {
-  router.push('/report.html');
+  router.push('/report');
 }
 </script>
 

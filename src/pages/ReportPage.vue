@@ -1,21 +1,7 @@
-<script setup>
-import { useRouter } from 'vue-router';
-
-const router = useRouter();
-
-function goToHome() {
-  router.push('/home.html');
-}
-
-function viewDetail(id) {
-  alert('리포트 #' + id + '의 상세 분석 페이지로 이동합니다.');
-}
-</script>
-
 <template>
-  <main class="bg-slate-50 min-h-screen flex items-center justify-center p-4">
+  <div class="bg-slate-50 min-h-screen flex items-center justify-center p-4">
     <div class="bg-white shadow-2xl rounded-[2.5rem] flex flex-col max-w-sm w-full overflow-hidden h-[85vh] sm:h-[90vh] relative">
-    
+
       <div class="w-full px-6 pt-8 pb-4 flex justify-between items-center bg-white sticky top-0 z-20">
         <div class="flex items-center gap-2">
           <div class="w-7 h-7 bg-brand rounded-lg flex items-center justify-center text-white">
@@ -23,12 +9,12 @@ function viewDetail(id) {
           </div>
           <h1 class="text-xl font-bold text-slate-800 tracking-tight">면접 리포트</h1>
         </div>
-    
+
         <button @click="goToHome" class="p-2.5 bg-slate-50 rounded-full hover:bg-brandLight hover:text-brand text-slate-400 transition-colors">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
         </button>
       </div>
-    
+
       <div class="px-6 py-4 bg-brandBg/50 border-b border-brandLight/30">
         <div class="flex items-center gap-4">
           <div class="flex-1">
@@ -41,9 +27,9 @@ function viewDetail(id) {
           </div>
         </div>
       </div>
-    
+
       <div class="flex-grow overflow-y-auto px-6 py-4 space-y-4 hide-scrollbar bg-slate-50/30">
-    
+
         <div @click="viewDetail(1)" class="bg-white border-2 border-slate-100 p-4 rounded-3xl shadow-sm hover:border-brand/40 transition-all cursor-pointer group active:scale-95 transform">
           <div class="flex justify-between items-start mb-3">
             <div>
@@ -63,7 +49,7 @@ function viewDetail(id) {
             </div>
           </div>
         </div>
-    
+
         <div @click="viewDetail(2)" class="bg-white border-2 border-slate-100 p-4 rounded-3xl shadow-sm hover:border-brand/40 transition-all cursor-pointer group active:scale-95 transform">
           <div class="flex justify-between items-start mb-3">
             <div>
@@ -83,7 +69,7 @@ function viewDetail(id) {
             </div>
           </div>
         </div>
-    
+
         <div @click="viewDetail(3)" class="bg-white border-2 border-slate-100 p-4 rounded-3xl shadow-sm hover:border-brand/40 transition-all cursor-pointer group active:scale-95 transform">
           <div class="flex justify-between items-start mb-3">
             <div>
@@ -103,12 +89,41 @@ function viewDetail(id) {
             </div>
           </div>
         </div>
-    
+
       </div>
-    
+
       <div class="p-6 bg-white border-t border-slate-50 text-center">
         <p class="text-[10px] text-slate-300 font-medium tracking-widest uppercase">Career-View Analytics Platform</p>
       </div>
     </div>
-  </main>
+  </div>
 </template>
+
+<script setup>
+import { useRouter } from 'vue-router';
+
+const router = useRouter();
+
+// 상단 뒤로가기 화살표 클릭 시 홈 화면으로 이동
+const goToHome = () => {
+    router.push('/home');
+};
+
+// 특정 리포트 카드 클릭 시 상세 페이지로 이동 (임시)
+const viewDetail = (id) => {
+    alert(`리포트 #${id}의 상세 분석 페이지로 이동합니다. (상세 페이지 이사 대기 중!)`);
+    // 나중에 상세 페이지를 만들면 주석을 풉니다.
+    // router.push(`/report-detail/${id}`);
+};
+</script>
+
+<style scoped>
+/* 모바일 화면에서 스크롤바를 깔끔하게 숨겨주는 CSS 설정입니다 */
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+</style>s

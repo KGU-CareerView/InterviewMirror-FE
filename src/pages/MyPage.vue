@@ -4,18 +4,18 @@ import { useRouter } from 'vue-router';
 const router = useRouter();
 
 function goToHome() {
-  router.push('/home.html');
+  router.push('/home');
 }
 
 function goToReport() {
-  router.push('/report.html');
+  router.push('/report');
 }
 
 function handleLogout() {
   if (confirm('정말 로그아웃 하시겠습니까?')) {
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
-    router.push('/login.html');
+    router.push('/login');
   }
 }
 </script>

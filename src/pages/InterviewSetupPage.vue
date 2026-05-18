@@ -45,7 +45,7 @@ function selectNum(event) {
 
 function startInterview() {
   alert('설정 완료! 실시간 면접 화면으로 이동합니다.');
-  router.push('/interview.html');
+  router.push('/interview');
 }
 </script>
 
