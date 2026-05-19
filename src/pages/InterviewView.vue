@@ -230,6 +230,7 @@
 </template>
 
 <script setup>
+import { FaceLandmarker, FilesetResolver } from '@mediapipe/tasks-vision'
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router' // 라우터 기능 추가
 
@@ -240,6 +241,8 @@ const API_HOST = 'cameron-hereditary-suppositively.ngrok-free.dev'
 const WS_PATH = '/api/ws-interview'
 const STOMP_NULL = '\u0000'
 const USE_SOCKJS_TRANSPORT = true
+const MEDIAPIPE_WASM_URL = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm'
+const FACE_LANDMARKER_MODEL_URL = 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/latest/face_landmarker.task'
 
 // --- 인터페이스 리액티브 상태 정의 ---
 const isModalOpen = ref(false)
@@ -274,6 +277,9 @@ let imageStreamingInterval = null
 let stompSubscriptionSeq = 0
 let stompConnected = false
 let sockJsOpen = false
+let faceLandmarker = null
+let isFaceLandmarkerLoading = false
+let isFrameProcessing = false
 const activeSessionId = ref(String(route.query.sessionId || localStorage.getItem('sessionId') || '123'))
 const activeUserId = ref(String(localStorage.getItem('userId') || '1'))
 
@@ -521,6 +527,103 @@ const handleStompFrame = (frame) => {
   }
 }
 
+const initFaceLandmarker = async () => {
+  if (faceLandmarker || isFaceLandmarkerLoading) return faceLandmarker
+
+  isFaceLandmarkerLoading = true
+
+  try {
+    const vision = await FilesetResolver.forVisionTasks(MEDIAPIPE_WASM_URL)
+
+    const landmarkerOptions = {
+      baseOptions: {
+        modelAssetPath: FACE_LANDMARKER_MODEL_URL,
+        delegate: 'GPU'
+      },
+      runningMode: 'VIDEO',
+      numFaces: 1,
+      outputFaceBlendshapes: true
+    }
+
+    try {
+      faceLandmarker = await FaceLandmarker.createFromOptions(vision, landmarkerOptions)
+    } catch (gpuError) {
+      console.warn('MediaPipe GPU 초기화 실패, CPU로 재시도합니다:', gpuError)
+      faceLandmarker = await FaceLandmarker.createFromOptions(vision, {
+        ...landmarkerOptions,
+        baseOptions: {
+          ...landmarkerOptions.baseOptions,
+          delegate: 'CPU'
+        }
+      })
+    }
+
+    return faceLandmarker
+  } catch (error) {
+    console.error('MediaPipe Face Landmarker 초기화 실패:', error)
+    showWarning.value = true
+    warningMessage.value = '얼굴 특징점 분석 모델을 불러오지 못했습니다. 면접은 계속 진행됩니다.'
+    return null
+  } finally {
+    isFaceLandmarkerLoading = false
+  }
+}
+
+const flattenFaceLandmarks = (landmarks) => {
+  return landmarks.flatMap((point) => [
+    Number(point.x.toFixed(6)),
+    Number(point.y.toFixed(6)),
+    Number(point.z.toFixed(6))
+  ])
+}
+
+const flattenBlendshapes = (blendshapes = []) => {
+  return blendshapes.map((category) => Number(category.score.toFixed(6)))
+}
+
+const createFaceBoundingBox = (landmarks) => {
+  const xs = landmarks.map((point) => point.x)
+  const ys = landmarks.map((point) => point.y)
+  const videoWidth = videoRef.value?.videoWidth || 1
+  const videoHeight = videoRef.value?.videoHeight || 1
+
+  return {
+    x1: Math.round(Math.min(...xs) * videoWidth),
+    y1: Math.round(Math.min(...ys) * videoHeight),
+    x2: Math.round(Math.max(...xs) * videoWidth),
+    y2: Math.round(Math.max(...ys) * videoHeight)
+  }
+}
+
+const createFaceFeaturePayload = () => {
+  if (!faceLandmarker || !videoRef.value || !videoRef.value.videoWidth || !videoRef.value.videoHeight) {
+    return null
+  }
+
+  const result = faceLandmarker.detectForVideo(videoRef.value, performance.now())
+  const landmarks = result.faceLandmarks?.[0]
+
+  if (!landmarks?.length) {
+    return {
+      tensorShape: [1, 1],
+      features: [0],
+      faceDetected: false
+    }
+  }
+
+  const blendshapes = result.faceBlendshapes?.[0]?.categories || []
+  const landmarkFeatures = flattenFaceLandmarks(landmarks)
+  const blendshapeFeatures = flattenBlendshapes(blendshapes)
+  const features = [...landmarkFeatures, ...blendshapeFeatures]
+
+  return {
+    tensorShape: [1, features.length],
+    features,
+    faceDetected: true,
+    bbox: createFaceBoundingBox(landmarks)
+  }
+}
+
 // 1. 하드웨어 카메라 스트림 활성화 연동
 const initCameraStream = async () => {
   if (!navigator.mediaDevices?.getUserMedia) {
@@ -541,6 +644,7 @@ const initCameraStream = async () => {
     }
     isCameraReady.value = true
     isCameraPermissionModalOpen.value = false
+    await initFaceLandmarker()
     return true
   } catch (err) {
     console.error('웹캠 엑세스 거부 또는 장치 에러:', err)
@@ -598,33 +702,35 @@ const initWebSocketPipeline = () => {
 
 // 3. 논문 스펙에 명시된 6 FPS 주기 백엔드 이미지 전송 파이프라인
 const startFrameTransmission = () => {
-  const canvas = document.createElement('canvas')
-  const ctx = canvas.getContext('2d')
-  canvas.width = 2
-  canvas.height = 2
+  if (imageStreamingInterval) clearInterval(imageStreamingInterval)
 
-  imageStreamingInterval = setInterval(() => {
+  imageStreamingInterval = setInterval(async () => {
     if (!videoRef.value || !stompConnected) return
     if (!isCameraReady.value || !videoRef.value.videoWidth || !videoRef.value.videoHeight) return
+    if (isFrameProcessing) return
 
-    ctx.drawImage(videoRef.value, 0, 0, canvas.width, canvas.height)
-    const framePixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data
-    const features = [0, 1, 2].map((colorOffset) => {
-      let colorSum = 0
-      for (let index = colorOffset; index < framePixels.length; index += 4) {
-        colorSum += framePixels[index]
+    isFrameProcessing = true
+
+    try {
+      if (!faceLandmarker) {
+        await initFaceLandmarker()
       }
-      return Number((colorSum / (framePixels.length / 4) / 255).toFixed(4))
-    })
 
-    sendStompJson('/app/realtime.frames', {
-      sessionId: activeSessionId.value,
-      userId: activeUserId.value,
-      tensorShape: [1, 3, 1, 1],
-      features,
-      timestamp: Date.now(),
-      faceDetected: true
-    })
+      const facePayload = createFaceFeaturePayload()
+      if (!facePayload) return
+
+      sendStompJson('/app/realtime.frames', {
+        sessionId: activeSessionId.value,
+        userId: activeUserId.value,
+        tensorShape: facePayload.tensorShape,
+        features: facePayload.features,
+        timestamp: Date.now(),
+        faceDetected: facePayload.faceDetected,
+        bbox: facePayload.bbox
+      })
+    } finally {
+      isFrameProcessing = false
+    }
   }, 1000 / 6) 
 }
 
@@ -720,6 +826,7 @@ onUnmounted(() => {
   if (timerInterval) clearInterval(timerInterval)
   if (imageStreamingInterval) clearInterval(imageStreamingInterval)
   if (localStream) localStream.getTracks().forEach(track => track.stop())
+  if (faceLandmarker) faceLandmarker.close()
   if (socket) socket.close()
 })
 </script>
