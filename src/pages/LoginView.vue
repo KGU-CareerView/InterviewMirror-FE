@@ -85,7 +85,7 @@ const handleLogin = () => {
         return;
     }
 
-    const API_URL = 'http://cameron-hereditary-suppositively.ngrok-free.dev/api/v1/auth/login';
+    const API_URL = 'https://cameron-hereditary-suppositively.ngrok-free.dev/api/v1/auth/login';
 
     fetch(API_URL, {
         method: 'POST',
@@ -108,9 +108,15 @@ const handleLogin = () => {
             
             alert('로그인 성공! 서버에서 토큰을 받았습니다.');
             
-            // 🌟 이 부분을 수정했습니다! 
-            // 로그인에 성공하면 가상 서버 안에서 대시보드 홈 화면으로 이동시킵니다.
-            router.push('/home');
+            // 🌟 최초 로그인 분기 처리 활성화!
+            // 지금은 테스트 기간이므로 새로 만든 직무 선택 화면을 강제로 거쳐 가도록 true로 세팅했습니다.
+            const isFirstLogin = true; 
+
+            if (isFirstLogin) {
+                router.push('/job-select'); // 직무 선택 페이지로 부드럽게 이동
+            } else {
+                router.push('/home'); // 기존 유저는 바로 홈 화면으로 이동
+            }
         } else {
             alert('서버로부터 올바른 토큰을 받지 못했습니다.');
         }

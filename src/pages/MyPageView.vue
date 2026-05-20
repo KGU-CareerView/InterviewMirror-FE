@@ -1,36 +1,14 @@
-<script setup>
-import { useRouter } from 'vue-router';
-
-const router = useRouter();
-
-function goToHome() {
-  router.push('/home');
-}
-
-function goToReport() {
-  router.push('/report');
-}
-
-function handleLogout() {
-  if (confirm('정말 로그아웃 하시겠습니까?')) {
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
-    router.push('/login');
-  }
-}
-</script>
-
 <template>
-  <main class="bg-slate-50 min-h-screen flex items-center justify-center p-4">
+  <div class="bg-slate-50 min-h-screen flex items-center justify-center p-4">
     <div class="bg-white shadow-2xl rounded-[2.5rem] flex flex-col max-w-sm sm:max-w-md w-full overflow-hidden h-[85vh] sm:h-[90vh] relative">
-    
+
       <div class="w-full px-6 pt-8 pb-4 flex items-center relative z-10 border-b border-slate-100">
         <button @click="goToHome" class="p-2 -ml-2 mr-2 bg-transparent rounded-full hover:bg-slate-50 text-slate-500 transition-colors">
           <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
         </button>
         <h1 class="text-xl font-bold text-slate-800 tracking-tight">마이페이지</h1>
       </div>
-    
+
       <div class="px-6 py-8 bg-white border-b border-slate-100 flex items-center gap-5">
         <div class="w-16 h-16 rounded-full bg-brandLight flex items-center justify-center shadow-inner">
           <svg class="w-8 h-8 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
@@ -43,10 +21,10 @@ function handleLogout() {
           </button>
         </div>
       </div>
-    
+
       <div class="flex-grow overflow-y-auto px-6 py-4">
         <h3 class="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-3 pl-1">앱 설정 및 관리</h3>
-    
+
         <div class="flex flex-col gap-1">
           <button @click="goToReport" class="w-full flex items-center justify-between p-4 rounded-2xl hover:bg-slate-50 transition-colors group">
             <div class="flex items-center gap-3">
@@ -57,7 +35,7 @@ function handleLogout() {
             </div>
             <svg class="w-4 h-4 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
           </button>
-    
+
           <button class="w-full flex items-center justify-between p-4 rounded-2xl hover:bg-slate-50 transition-colors group">
             <div class="flex items-center gap-3">
               <div class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 group-hover:bg-slate-200 transition-colors">
@@ -67,7 +45,7 @@ function handleLogout() {
             </div>
             <svg class="w-4 h-4 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
           </button>
-    
+
           <button class="w-full flex items-center justify-between p-4 rounded-2xl hover:bg-slate-50 transition-colors group">
             <div class="flex items-center gap-3">
               <div class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 group-hover:bg-slate-200 transition-colors">
@@ -79,14 +57,53 @@ function handleLogout() {
           </button>
         </div>
       </div>
-    
+
       <div class="px-6 py-6 bg-slate-50/50 border-t border-slate-100 flex items-center justify-between mt-auto">
         <span class="text-xs font-bold text-slate-300">버전 1.0.0</span>
-    
+
         <button @click="handleLogout" class="text-xs font-bold text-rose-400 hover:text-rose-500 transition-colors py-2 px-3 hover:bg-rose-50 rounded-lg">
           로그아웃
         </button>
       </div>
     </div>
-  </main>
+  </div>
 </template>
+
+<script setup>
+import { useRouter } from 'vue-router';
+
+const router = useRouter();
+
+// 1. 뒤로가기 누르면 홈으로
+const goToHome = () => {
+    router.push('/home');
+};
+
+// 2. 리포트 누르면 리포트 화면으로
+const goToReport = () => {
+    router.push('/report');
+};
+
+// 🌟 3. 핵심: 로그아웃 로직 (토큰 삭제 및 이동)
+const handleLogout = () => {
+    const isConfirm = confirm("정말 로그아웃 하시겠습니까?");
+
+    if (isConfirm) {
+        // 백엔드 로그아웃 API가 있다면 여기서 fetch 호출! (지금은 생략)
+        
+        // [필수] 브라우저(로컬스토리지)에 저장된 사용자 토큰을 삭제합니다.
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+        
+        alert('안전하게 로그아웃 되었습니다.');
+        
+        // 로그인 화면(첫 화면)으로 쫓아냅니다.
+        router.push('/');
+    }
+};
+</script>
+
+<style scoped>
+/* 스크롤바 숨김 처리 */
+::-webkit-scrollbar { display: none; }
+</style>

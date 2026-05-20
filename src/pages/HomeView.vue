@@ -65,9 +65,9 @@ const viewReports = () => {
 };
 
 // 🌟 우측 상단 마이페이지 버튼 클릭 시 (아직 화면이 없으므로 임시 알림창 처리)
+// 홈 화면(HomeView.vue) 하단
 const goToMyPage = () => {
-    alert('마이페이지 화면으로 이동합니다. (이사 중!)');
-    // 나중에 MyPageView.vue를 만들면 아래 주석을 풀고 사용하세요.
-    // router.push('/mypage'); 
+    // 🌟 alert 창을 지우고, 방금 만든 마이페이지로 이동시킵니다!
+    router.push('/mypage'); 
 };
 </script>
