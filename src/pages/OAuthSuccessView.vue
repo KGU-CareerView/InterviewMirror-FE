@@ -23,6 +23,7 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import { apiUrl } from '../config/env';
 
 // route는 주소창 정보를 읽을 때, router는 화면을 이동할 때 사용합니다.
 const route = useRoute();
@@ -51,8 +52,7 @@ onMounted(() => {
 
         // 2. [실제 연동 시 적용할 fetch 코드]
         /*
-        const BACKEND_BASE_URL = 'http://cameron-hereditary-suppositively.ngrok-free.dev';
-        fetch(`${BACKEND_BASE_URL}/api/v1/auth/oauth/token`, { ... })
+        fetch(apiUrl('/api/v1/auth/oauth/token'), { ... })
         */
 
         // 3. [임시 테스트용 Mock 로직]

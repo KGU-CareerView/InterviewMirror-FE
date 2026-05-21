@@ -74,6 +74,7 @@
 <script setup>
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
+import { apiUrl } from '../config/env';
 
 const email = ref('');
 const password = ref('');
@@ -85,9 +86,7 @@ const handleLogin = () => {
         return;
     }
 
-    const API_URL = 'https://cameron-hereditary-suppositively.ngrok-free.dev/api/v1/auth/login';
-
-    fetch(API_URL, {
+    fetch(apiUrl('/api/v1/auth/login'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
