@@ -55,7 +55,7 @@ const router = useRouter();
 
 // 🌟 면접 시작 버튼 클릭 시 작동하는 함수
 const startInterview = () => {
-    router.push('/interview'); // 우리가 만든 면접 화면으로 부드럽게 화면을 교체합니다!
+    router.push('/job-select');
 };
 
 // 리포트 버튼 클릭 시

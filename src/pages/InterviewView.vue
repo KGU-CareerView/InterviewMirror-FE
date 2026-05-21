@@ -100,7 +100,9 @@
 
           <button
             @click="handleAnswerButtonClick"
+            :disabled="isWaitingForQuestion"
             class="w-full py-4 bg-brand hover:bg-brandHover text-white rounded-xl font-bold transition-colors duration-200 shadow-md flex items-center justify-center gap-2"
+            :class="isWaitingForQuestion ? 'opacity-50 cursor-not-allowed' : ''"
           >
             {{ answerButtonLabel }}
             <svg v-if="!isLastQuestion" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"></path></svg>
@@ -233,16 +235,19 @@
 import { FaceLandmarker, FilesetResolver } from '@mediapipe/tasks-vision'
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router' // 라우터 기능 추가
+import {
+  FACE_LANDMARKER_MODEL_URL,
+  MEDIAPIPE_WASM_URL,
+  USE_SOCKJS_TRANSPORT,
+  WS_INTERVIEW_PATH,
+  webSocketUrl
+} from '../config/env'
+import { getInterviewSetting, updateInterviewSessionStatus } from '../api/interview'
 
 const router = useRouter()
 const route = useRoute()
 
-const API_HOST = 'cameron-hereditary-suppositively.ngrok-free.dev'
-const WS_PATH = '/api/ws-interview'
 const STOMP_NULL = '\u0000'
-const USE_SOCKJS_TRANSPORT = true
-const MEDIAPIPE_WASM_URL = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm'
-const FACE_LANDMARKER_MODEL_URL = 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/latest/face_landmarker.task'
 
 // --- 인터페이스 리액티브 상태 정의 ---
 const isModalOpen = ref(false)
@@ -259,6 +264,7 @@ const cameraPermissionMessage = ref('실시간 표정 분석을 사용하려면 
 const currentQuestion = ref('AI 서버로부터 면접 질문을 구성하고 있습니다...')
 const questionIndex = ref(1)
 const totalQuestions = ref(5)
+const isWaitingForQuestion = ref(true)
 
 // 타이머 변수
 const timerSeconds = ref(0)
@@ -280,7 +286,7 @@ let sockJsOpen = false
 let faceLandmarker = null
 let isFaceLandmarkerLoading = false
 let isFrameProcessing = false
-const activeSessionId = ref(String(route.query.sessionId || localStorage.getItem('sessionId') || '123'))
+const activeSessionId = ref(String(route.query.sessionId || localStorage.getItem('sessionId') || ''))
 const activeUserId = ref(String(localStorage.getItem('userId') || '1'))
 
 // --- 타이머 포맷 계산 필드 ---
@@ -296,7 +302,10 @@ const cameraActionLabel = computed(() => {
 })
 
 const isLastQuestion = computed(() => questionIndex.value >= totalQuestions.value)
-const answerButtonLabel = computed(() => isLastQuestion.value ? '답변 완료 / 결과 보기' : '답변 완료 / 다음')
+const answerButtonLabel = computed(() => {
+  if (isWaitingForQuestion.value) return '질문 준비 중...'
+  return isLastQuestion.value ? '답변 완료 / 결과 보기' : '답변 완료 / 다음'
+})
 
 // --- 라우터 화면 이동 함수 ---
 const goToHome = () => {
@@ -331,9 +340,9 @@ const createWebSocketUrl = () => {
   const sockJsServerId = '000'
   const sockJsSessionId = `${Date.now()}${Math.random().toString(36).slice(2)}`
   const endpointPath = USE_SOCKJS_TRANSPORT
-    ? `${WS_PATH}/${sockJsServerId}/${sockJsSessionId}/websocket`
-    : WS_PATH
-  const url = new URL(`wss://${API_HOST}${endpointPath}`)
+    ? `${WS_INTERVIEW_PATH}/${sockJsServerId}/${sockJsSessionId}/websocket`
+    : WS_INTERVIEW_PATH
+  const url = new URL(webSocketUrl(endpointPath))
 
   // 브라우저 WebSocket은 핸드셰이크에 Authorization 헤더를 직접 실을 수 없습니다.
   // 백엔드가 query token을 허용하지 않더라도 STOMP CONNECT 헤더에도 같은 토큰을 보냅니다.
@@ -473,6 +482,7 @@ const handleQuestionEvent = (payload) => {
     currentQuestion.value = payload.firstQuestion || payload.questions?.[0]?.question || '첫 질문을 불러왔습니다.'
     questionIndex.value = 1
     totalQuestions.value = payload.questions?.length || totalQuestions.value
+    isWaitingForQuestion.value = false
     return
   }
 
@@ -481,12 +491,14 @@ const handleQuestionEvent = (payload) => {
       questionIndex.value += 1
     }
     currentQuestion.value = payload.question || '다음 질문을 불러왔습니다.'
+    isWaitingForQuestion.value = false
   }
 }
 
 const handleErrorEvent = (payload) => {
   showWarning.value = true
   warningMessage.value = payload.message || '면접 처리 중 오류가 발생했습니다.'
+  isWaitingForQuestion.value = false
 }
 
 const handleRealtimeEvent = (payload) => {
@@ -736,6 +748,7 @@ const startFrameTransmission = () => {
 
 const submitCurrentAnswer = () => {
   if (stompConnected) {
+    isWaitingForQuestion.value = true
     return sendStompJson('/app/session.answer', {
       sessionId: Number(activeSessionId.value),
       answer: '사용자가 답변을 완료했습니다.',
@@ -747,18 +760,15 @@ const submitCurrentAnswer = () => {
   return false
 }
 
-// 4. 다음 질문 넘어가기 컨트롤 인터랙션 (프론트 단독 작동 로직 추가)
+// 4. 다음 질문 넘어가기 컨트롤 인터랙션
 const requestNextQuestion = () => {
   if (stompConnected) {
     submitCurrentAnswer()
     return
   }
 
-  // 백엔드 연결 없이 테스트할 때 작동하는 로직
-  if (questionIndex.value < totalQuestions.value) {
-    questionIndex.value++
-    currentQuestion.value = `(${questionIndex.value}번째 질문) 백엔드 연동 전 임시 질문입니다. 답변을 계속해주세요.`
-  }
+  showWarning.value = true
+  warningMessage.value = '면접 서버와 연결된 뒤 답변을 제출할 수 있습니다.'
 }
 
 const completeInterview = () => {
@@ -788,16 +798,23 @@ const finishInterview = ({ redirectToReport = false } = {}) => {
       })
     }
 
+    if (activeSessionId.value) {
+      updateInterviewSessionStatus(activeSessionId.value, 'ENDED').catch((error) => {
+        console.error('면접 종료 상태 변경 실패:', error)
+      })
+    }
+
     if (analyticsLog.totalTicks > 0) {
       finalScores.value.stable = Math.round((analyticsLog.Stable / analyticsLog.totalTicks) * 100)
       finalScores.value.nervous = Math.round((analyticsLog.Nervous / analyticsLog.totalTicks) * 100)
       finalScores.value.neutral = Math.round((analyticsLog.Neutral / analyticsLog.totalTicks) * 100)
     } else {
-      // 데이터 없을 때 더미 점수
-      finalScores.value = { stable: 75, nervous: 15, neutral: 10 }
+      finalScores.value = { stable: 0, nervous: 0, neutral: 0 }
     }
 
-    if (finalScores.value.stable >= 70) {
+    if (analyticsLog.totalTicks === 0) {
+      aiFeedbackComment.value = '실시간 표정 분석 데이터가 아직 충분하지 않습니다. 상세 리포트가 준비되면 서버 분석 결과를 확인해주세요.'
+    } else if (finalScores.value.stable >= 70) {
       aiFeedbackComment.value = '전반적으로 시선 고정이 매우 안정적(Stable)이고 감정 변동 폭이 낮아 면접관에게 신뢰감을 주는 모범적인 태도를 보여주었습니다. 실전에서도 이 페이스를 유지하세요!'
     } else if (finalScores.value.nervous >= finalScores.value.stable) {
       aiFeedbackComment.value = '질문 답변 구간별 긴장(Nervous) 감지 패턴이 지배적입니다. 모니터 시선 이탈률이 다소 빈번하니, 답변 중 어깨의 긴장도를 낮추고 카메라 정면 응시율을 높이는 보완 연습을 추천합니다.'
@@ -815,8 +832,28 @@ const finishInterview = ({ redirectToReport = false } = {}) => {
   }
 }
 
+const hydrateInterviewSetting = async () => {
+  if (!activeSessionId.value) return
+
+  try {
+    const setting = await getInterviewSetting(activeSessionId.value)
+    if (setting?.questionCount) {
+      totalQuestions.value = setting.questionCount
+    }
+  } catch (error) {
+    console.warn('면접 설정 조회 실패:', error)
+  }
+}
+
 // --- 라이프사이클 훅 리소스 제어 처리 ---
 onMounted(async () => {
+  if (!activeSessionId.value) {
+    currentQuestion.value = '면접 세션 정보가 없습니다. 설정 화면에서 다시 시작해주세요.'
+    isWaitingForQuestion.value = true
+    return
+  }
+
+  await hydrateInterviewSetting()
   timerInterval = setInterval(() => timerSeconds.value++, 1000)
   isCameraPermissionModalOpen.value = true
   initWebSocketPipeline()

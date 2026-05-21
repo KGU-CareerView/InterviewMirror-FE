@@ -83,6 +83,7 @@ const selectJob = (id) => {
 const submitJob = () => {
     if (selectedJobId.value) {
         console.log("선택된 직무:", selectedJobId.value);
+        localStorage.setItem('selectedInterviewJob', selectedJobId.value);
         // 🌟 수정: 직무 선택 후 '면접 설정 화면'으로 넘어가도록 변경!
         router.push('/interview-setup'); 
     }

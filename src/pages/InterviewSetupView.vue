@@ -73,10 +73,14 @@
       <div class="p-6 bg-white border-t border-slate-50">
         <button 
           @click="startInterview" 
-          class="w-full py-4 bg-brand text-white font-bold rounded-2xl shadow-lg shadow-brand/20 transition-all hover:bg-brandHover transform active:scale-95"
+          :disabled="isStarting"
+          class="w-full py-4 bg-brand text-white font-bold rounded-2xl shadow-lg shadow-brand/20 transition-all hover:bg-brandHover transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
         >
-          면접 시작하기
+          {{ isStarting ? '질문 준비 중...' : '면접 시작하기' }}
         </button>
+        <p v-if="startError" class="mt-3 text-xs text-red-500 font-semibold text-center break-keep">
+          {{ startError }}
+        </p>
       </div>
       
     </div>
@@ -86,6 +90,7 @@
 <script setup>
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
+import { createInterviewSession, startInterviewSession } from '../api/interview';
 
 const router = useRouter();
 
@@ -93,6 +98,8 @@ const router = useRouter();
 const selectedType = ref('total');
 const selectedLevel = ref('중급');
 const selectedNum = ref(5);
+const isStarting = ref(false);
+const startError = ref('');
 
 // 화면에 보여줄 데이터 목록
 const interviewTypes = [
@@ -103,16 +110,69 @@ const interviewTypes = [
 const levels = ['초급', '중급', '고급'];
 const questionNumbers = [3, 5, 10];
 
+const categoryMap = {
+  dev: 'BACKEND',
+  pm: 'PLANNING',
+  design: 'DESIGN',
+  strategy: 'STRATEGY',
+  hr: 'HR',
+  data: 'AI',
+  finance: 'FINANCE',
+  etc: 'GENERAL'
+};
+
+const interviewTypeMap = {
+  personality: 'PERSONALITY',
+  job: 'TECH',
+  total: 'COMPREHENSIVE'
+};
+
+const difficultyMap = {
+  초급: 'EASY',
+  중급: 'NORMAL',
+  고급: 'HARD'
+};
+
+const createStartPayload = () => {
+  const selectedJob = localStorage.getItem('selectedInterviewJob') || 'dev';
+
+  return {
+    category: categoryMap[selectedJob] || 'BACKEND',
+    interviewType: interviewTypeMap[selectedType.value] || 'TECH',
+    difficulty: difficultyMap[selectedLevel.value] || 'NORMAL',
+    questionCount: selectedNum.value,
+    timePerQuestion: 60,
+    resumeContent: localStorage.getItem('resumeContent') || ''
+  };
+};
+
 // 면접 시작 버튼 클릭 시
-const startInterview = () => {
-    console.log("설정 완료!", { 
-        type: selectedType.value, 
-        level: selectedLevel.value, 
-        questions: selectedNum.value 
-    });
-    
-    // 설정된 데이터를 가지고 실시간 면접 화면으로 넘어갑니다.
-    router.push('/interview');
+const startInterview = async () => {
+    if (isStarting.value) return;
+
+    isStarting.value = true;
+    startError.value = '';
+
+    try {
+        const session = await createInterviewSession();
+        const sessionId = session.sessionId;
+        const setting = createStartPayload();
+
+        await startInterviewSession(sessionId, setting);
+
+        localStorage.setItem('sessionId', String(sessionId));
+        localStorage.setItem('interviewSetting', JSON.stringify(setting));
+
+        router.push({
+            path: '/interview',
+            query: { sessionId }
+        });
+    } catch (error) {
+        console.error('면접 시작 API 호출 실패:', error);
+        startError.value = error.message || '면접 세션을 시작하지 못했습니다. 잠시 후 다시 시도해주세요.';
+    } finally {
+        isStarting.value = false;
+    }
 };
 </script>
 
