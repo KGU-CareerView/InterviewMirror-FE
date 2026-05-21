@@ -14,8 +14,8 @@
           <svg class="w-8 h-8 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
         </div>
         <div class="flex-1">
-          <h2 class="text-lg font-extrabold text-slate-800 mb-0.5">홍길동 <span class="text-sm font-medium text-slate-400">님</span></h2>
-          <p class="text-xs text-slate-400 font-medium mb-2">test@example.com</p>
+          <h2 class="text-lg font-extrabold text-slate-800 mb-0.5">{{ userName }} <span class="text-sm font-medium text-slate-400">님</span></h2>
+          <p class="text-xs text-slate-400 font-medium mb-2">{{ userEmail }}</p>
           <button class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 text-[11px] font-bold rounded-lg transition-colors">
             프로필 수정하기
           </button>
@@ -70,9 +70,25 @@
 </template>
 
 <script setup>
+import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
+import { clearAuthSession, getMe, getStoredUser, logout } from '../api/auth';
 
 const router = useRouter();
+const user = ref(getStoredUser());
+
+const userName = computed(() => user.value?.name || '사용자');
+const userEmail = computed(() => user.value?.email || '');
+
+onMounted(async () => {
+    if (!localStorage.getItem('accessToken')) return;
+
+    try {
+        user.value = await getMe();
+    } catch (error) {
+        console.error('내 정보 조회 실패:', error);
+    }
+});
 
 // 1. 뒤로가기 누르면 홈으로
 const goToHome = () => {
@@ -85,20 +101,26 @@ const goToReport = () => {
 };
 
 // 🌟 3. 핵심: 로그아웃 로직 (토큰 삭제 및 이동)
-const handleLogout = () => {
+const handleLogout = async () => {
     const isConfirm = confirm("정말 로그아웃 하시겠습니까?");
 
     if (isConfirm) {
-        // 백엔드 로그아웃 API가 있다면 여기서 fetch 호출! (지금은 생략)
-        
-        // [필수] 브라우저(로컬스토리지)에 저장된 사용자 토큰을 삭제합니다.
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
+        const refreshToken = localStorage.getItem('refreshToken');
+
+        try {
+            if (refreshToken) {
+                await logout(refreshToken);
+            }
+        } catch (error) {
+            console.error('로그아웃 API 호출 실패:', error);
+        } finally {
+            clearAuthSession();
+        }
         
         alert('안전하게 로그아웃 되었습니다.');
         
         // 로그인 화면(첫 화면)으로 쫓아냅니다.
-        router.push('/');
+        router.push('/login');
     }
 };
 </script>

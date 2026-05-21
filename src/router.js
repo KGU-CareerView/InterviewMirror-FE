@@ -20,14 +20,14 @@ const routes = [
   
   { path: '/login', name: 'login', component: LoginView },
   { path: '/oauth-success', name: 'oauth-success', component: OAuthSuccessView },
-  { path: '/job-select', name: 'job-select', component: JobSelectView },
-  { path: '/interview-setup', name: 'interview-setup', component: InterviewSetupView },
-  { path: '/home', name: 'home', component: HomeView },
-  { path: '/mypage', name: 'mypage', component: MyPageView },
-  { path: '/interview', name: 'interview', component: InterviewView },
-  { path: '/popup', name: 'popup', component: PopupView },
+  { path: '/job-select', name: 'job-select', component: JobSelectView, meta: { requiresAuth: true } },
+  { path: '/interview-setup', name: 'interview-setup', component: InterviewSetupView, meta: { requiresAuth: true } },
+  { path: '/home', name: 'home', component: HomeView, meta: { requiresAuth: true } },
+  { path: '/mypage', name: 'mypage', component: MyPageView, meta: { requiresAuth: true } },
+  { path: '/interview', name: 'interview', component: InterviewView, meta: { requiresAuth: true } },
+  { path: '/popup', name: 'popup', component: PopupView, meta: { requiresAuth: true } },
   { path: '/signup', name: 'signup', component: SignupView },
-  { path: '/report', name: 'report', component: ReportView },
+  { path: '/report', name: 'report', component: ReportView, meta: { requiresAuth: true } },
   {
     path: '/:pathMatch(.*)*',
     redirect: '/login'
@@ -37,6 +37,20 @@ const routes = [
 const router = createRouter({
   history: createWebHistory(),
   routes
+});
+
+router.beforeEach((to) => {
+  const hasAccessToken = Boolean(localStorage.getItem('accessToken'));
+
+  if (to.meta.requiresAuth && !hasAccessToken) {
+    return '/login';
+  }
+
+  if ((to.name === 'login' || to.name === 'signup') && hasAccessToken) {
+    return '/home';
+  }
+
+  return true;
 });
 
 export default router;

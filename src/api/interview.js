@@ -6,6 +6,7 @@ const createHeaders = (headers = {}) => {
   const accessToken = getAccessToken()
 
   return {
+    'ngrok-skip-browser-warning': 'true',
     ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
     ...headers
   }

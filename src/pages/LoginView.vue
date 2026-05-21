@@ -30,19 +30,23 @@
         <form @submit.prevent="handleLogin">
           <div class="mb-4">
             <label for="email" class="block text-slate-700 text-xs font-bold mb-2">이메일</label>
-            <input v-model="email" type="email" id="email" class="w-full px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 focus:border-brand focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand/20 transition-all duration-300 text-sm" placeholder="user@example.com" required>
+            <input v-model="email" type="email" id="email" class="w-full px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 focus:border-brand focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand/20 transition-all duration-300 text-sm" placeholder="user@example.com" :disabled="isSubmitting" required>
           </div>
 
           <div class="mb-6">
             <label for="password" class="block text-slate-700 text-xs font-bold mb-2">비밀번호</label>
-            <input v-model="password" type="password" id="password" class="w-full px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 focus:border-brand focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand/20 transition-all duration-300 text-sm" placeholder="••••••••" required>
+            <input v-model="password" type="password" id="password" class="w-full px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 focus:border-brand focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand/20 transition-all duration-300 text-sm" placeholder="••••••••" :disabled="isSubmitting" required>
             <div class="flex justify-end mt-2">
               <a href="#" class="text-xs font-semibold text-brand hover:text-brandHover transition-colors">비밀번호를 잊으셨나요?</a>
             </div>
           </div>
 
-          <button type="submit" class="w-full bg-brand hover:bg-brandHover text-white font-bold py-3.5 rounded-xl shadow-lg shadow-brand/30 hover:shadow-brand/50 transition-all duration-300 transform hover:-translate-y-0.5 text-sm">
-            로그인
+          <p v-if="errorMessage" class="mb-4 text-xs font-bold text-rose-500">
+            {{ errorMessage }}
+          </p>
+
+          <button type="submit" :disabled="isSubmitting" class="w-full bg-brand hover:bg-brandHover disabled:bg-slate-300 disabled:shadow-none disabled:transform-none text-white font-bold py-3.5 rounded-xl shadow-lg shadow-brand/30 hover:shadow-brand/50 transition-all duration-300 transform hover:-translate-y-0.5 text-sm">
+            {{ isSubmitting ? '로그인 중...' : '로그인' }}
           </button>
         </form>
 
@@ -52,7 +56,7 @@
           <span class="border-b w-1/4 border-slate-200"></span>
         </div>
 
-        <button class="w-full mt-5 py-2.5 border border-slate-200 rounded-xl text-slate-700 bg-white hover:bg-slate-50 font-bold flex items-center justify-center gap-2 transition-colors text-sm">
+        <button @click="startGoogleLogin" :disabled="isSubmitting" class="w-full mt-5 py-2.5 border border-slate-200 rounded-xl text-slate-700 bg-white hover:bg-slate-50 disabled:opacity-60 font-bold flex items-center justify-center gap-2 transition-colors text-sm">
           <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none">
             <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
             <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
@@ -74,56 +78,45 @@
 <script setup>
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { apiUrl } from '../config/env';
+import { getGoogleOAuthUrl, login, saveAuthSession } from '../api/auth';
 
 const email = ref('');
 const password = ref('');
+const isSubmitting = ref(false);
+const errorMessage = ref('');
 const router = useRouter(); 
 
-const handleLogin = () => {
+const handleLogin = async () => {
     if (!email.value || !password.value) {
-        alert('이메일과 비밀번호를 모두 입력해주세요.');
+        errorMessage.value = '이메일과 비밀번호를 모두 입력해주세요.';
         return;
     }
 
-    fetch(apiUrl('/api/v1/auth/login'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+    isSubmitting.value = true;
+    errorMessage.value = '';
+
+    try {
+        const authData = await login({
             email: email.value,
             password: password.value
-        })
-    })
-    .then(response => {
-        if (!response.ok) throw new Error('로그인 실패: 이메일이나 비밀번호를 확인해주세요.');
-        return response.json();
-    })
-    .then(res => {
-        const authData = res.data ? res.data : res;
-        
-        if (authData.accessToken && authData.refreshToken) {
-            localStorage.setItem('accessToken', authData.accessToken);
-            localStorage.setItem('refreshToken', authData.refreshToken);
-            
-            alert('로그인 성공! 서버에서 토큰을 받았습니다.');
-            
-            // 🌟 최초 로그인 분기 처리 활성화!
-            // 지금은 테스트 기간이므로 새로 만든 직무 선택 화면을 강제로 거쳐 가도록 true로 세팅했습니다.
-            const isFirstLogin = true; 
+        });
 
-            if (isFirstLogin) {
-                router.push('/job-select'); // 직무 선택 페이지로 부드럽게 이동
-            } else {
-                router.push('/home'); // 기존 유저는 바로 홈 화면으로 이동
-            }
-        } else {
-            alert('서버로부터 올바른 토큰을 받지 못했습니다.');
+        if (!authData?.accessToken || !authData?.refreshToken) {
+            throw new Error('서버로부터 올바른 토큰을 받지 못했습니다.');
         }
-    })
-    .catch(error => {
-        console.error("서버 통신 에러:", error);
-        alert(error.message || "서버에 연결할 수 없습니다.");
-    });
+
+        saveAuthSession(authData);
+        router.push('/home');
+    } catch (error) {
+        console.error("로그인 에러:", error);
+        errorMessage.value = error.message || '로그인에 실패했습니다.';
+    } finally {
+        isSubmitting.value = false;
+    }
+};
+
+const startGoogleLogin = () => {
+    window.location.href = getGoogleOAuthUrl();
 };
 
 const goToSignup = () => {

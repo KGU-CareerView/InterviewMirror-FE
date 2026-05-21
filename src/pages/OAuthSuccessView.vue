@@ -23,7 +23,7 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { apiUrl } from '../config/env';
+import { exchangeOAuthCode, saveAuthSession } from '../api/auth';
 
 // route는 주소창 정보를 읽을 때, router는 화면을 이동할 때 사용합니다.
 const route = useRoute();
@@ -42,7 +42,7 @@ const handleError = (message) => {
 };
 
 // 화면이 켜지자마자 실행되는 로직 (onMounted)
-onMounted(() => {
+onMounted(async () => {
     // 1. 주소창(URL)에서 구글이 던져준 임시 영수증 'code'를 추출합니다.
     // Vue에서는 URLSearchParams 대신 route.query를 사용하면 훨씬 간단합니다!
     const authCode = route.query.code;
@@ -50,27 +50,28 @@ onMounted(() => {
     if (authCode) {
         console.log("구글 인가 코드 획득 성공:", authCode);
 
-        // 2. [실제 연동 시 적용할 fetch 코드]
-        /*
-        fetch(apiUrl('/api/v1/auth/oauth/token'), { ... })
-        */
+        try {
+            const authData = await exchangeOAuthCode(String(authCode));
 
-        // 3. [임시 테스트용 Mock 로직]
-        // 1.5초 후 자동으로 넘어가는 처리
-        setTimeout(() => {
-            // 가짜 토큰 저장
-            localStorage.setItem('accessToken', 'mock_google_access_token_abcde');
-            localStorage.setItem('refreshToken', 'mock_google_refresh_token_fghij');
+            if (!authData?.accessToken || !authData?.refreshToken) {
+                throw new Error('서버로부터 올바른 토큰을 받지 못했습니다.');
+            }
 
-            // 최초 로그인이라 가정하고 직무 선택 화면으로 이동
-            router.push('/job-select');
-        }, 1500);
+            saveAuthSession(authData);
+            router.push('/home');
+        } catch (error) {
+            console.error('OAuth 토큰 교환 실패:', error);
+            handleError(error.message || '구글 로그인 처리 중 오류가 발생했습니다.');
+            setTimeout(() => {
+                router.push('/login');
+            }, 2000);
+        }
 
     } else {
         // URL에 code가 없는 잘못된 접근일 경우
         handleError("올바르지 않은 접근입니다. 로그인 창으로 돌아갑니다.");
         setTimeout(() => {
-            router.push('/'); // 로그인 화면(기본)으로 돌아가기
+            router.push('/login'); // 로그인 화면으로 돌아가기
         }, 2000);
     }
 });

@@ -35,36 +35,40 @@
         <form @submit.prevent="handleSignup">
           <div class="mb-4">
             <label for="name" class="block text-slate-700 text-xs font-bold mb-1.5">이름</label>
-            <input v-model="name" type="text" id="name" class="w-full px-3 py-2.5 rounded-xl bg-slate-50 border border-slate-200 focus:border-brand focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand/20 transition-all duration-300 text-sm" placeholder="홍길동" required>
+            <input v-model="name" type="text" id="name" class="w-full px-3 py-2.5 rounded-xl bg-slate-50 border border-slate-200 focus:border-brand focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand/20 transition-all duration-300 text-sm" placeholder="홍길동" :disabled="isSubmitting" required>
           </div>
 
           <div class="mb-4">
             <label for="email" class="block text-slate-700 text-xs font-bold mb-1.5">이메일</label>
-            <input v-model="email" type="email" id="email" class="w-full px-3 py-2.5 rounded-xl bg-slate-50 border border-slate-200 focus:border-brand focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand/20 transition-all duration-300 text-sm" placeholder="user@example.com" required>
+            <input v-model="email" type="email" id="email" class="w-full px-3 py-2.5 rounded-xl bg-slate-50 border border-slate-200 focus:border-brand focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand/20 transition-all duration-300 text-sm" placeholder="user@example.com" :disabled="isSubmitting" required>
           </div>
 
           <div class="mb-4">
             <label for="password" class="block text-slate-700 text-xs font-bold mb-1.5">비밀번호</label>
-            <input v-model="password" type="password" id="password" class="w-full px-3 py-2.5 rounded-xl bg-slate-50 border border-slate-200 focus:border-brand focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand/20 transition-all duration-300 text-sm" placeholder="••••••••" required>
+            <input v-model="password" type="password" id="password" class="w-full px-3 py-2.5 rounded-xl bg-slate-50 border border-slate-200 focus:border-brand focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand/20 transition-all duration-300 text-sm" placeholder="••••••••" :disabled="isSubmitting" required>
             <p class="text-[10px] text-slate-400 mt-1 ml-1">영문, 숫자 포함 8자 이상</p>
           </div>
 
           <div class="mb-5">
             <label for="passwordConfirm" class="block text-slate-700 text-xs font-bold mb-1.5">비밀번호 확인</label>
-            <input v-model="passwordConfirm" type="password" id="passwordConfirm" class="w-full px-3 py-2.5 rounded-xl bg-slate-50 border border-slate-200 focus:border-brand focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand/20 transition-all duration-300 text-sm" placeholder="••••••••" required>
+            <input v-model="passwordConfirm" type="password" id="passwordConfirm" class="w-full px-3 py-2.5 rounded-xl bg-slate-50 border border-slate-200 focus:border-brand focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand/20 transition-all duration-300 text-sm" placeholder="••••••••" :disabled="isSubmitting" required>
           </div>
 
           <div class="mb-6 flex items-start">
             <div class="flex items-center h-4 mt-0.5">
-              <input v-model="terms" id="terms" type="checkbox" class="w-3.5 h-3.5 text-brand bg-slate-100 border-slate-300 rounded focus:ring-brand focus:ring-2" required>
+              <input v-model="terms" id="terms" type="checkbox" class="w-3.5 h-3.5 text-brand bg-slate-100 border-slate-300 rounded focus:ring-brand focus:ring-2" :disabled="isSubmitting" required>
             </div>
             <label for="terms" class="ml-2 text-[11px] text-slate-600 leading-snug">
               <a href="#" class="font-semibold text-brand hover:underline">이용약관</a> 및 <a href="#" class="font-semibold text-brand hover:underline">개인정보 처리방침</a>에 동의합니다.
             </label>
           </div>
 
-          <button type="submit" class="w-full bg-brand hover:bg-brandHover text-white font-bold py-3 rounded-xl shadow-lg shadow-brand/30 hover:shadow-brand/50 transition-all duration-300 transform hover:-translate-y-0.5 text-sm">
-            Career-View 시작하기
+          <p v-if="errorMessage" class="mb-4 text-xs font-bold text-rose-500">
+            {{ errorMessage }}
+          </p>
+
+          <button type="submit" :disabled="isSubmitting" class="w-full bg-brand hover:bg-brandHover disabled:bg-slate-300 disabled:shadow-none disabled:transform-none text-white font-bold py-3 rounded-xl shadow-lg shadow-brand/30 hover:shadow-brand/50 transition-all duration-300 transform hover:-translate-y-0.5 text-sm">
+            {{ isSubmitting ? '가입 중...' : 'Career-View 시작하기' }}
           </button>
         </form>
 
@@ -74,7 +78,7 @@
           <span class="border-b w-1/4 border-slate-200"></span>
         </div>
 
-        <button class="w-full mt-5 py-2.5 border border-slate-200 rounded-xl text-slate-700 bg-white hover:bg-slate-50 font-bold flex items-center justify-center gap-2 transition-colors text-sm">
+        <button @click="startGoogleLogin" :disabled="isSubmitting" class="w-full mt-5 py-2.5 border border-slate-200 rounded-xl text-slate-700 bg-white hover:bg-slate-50 disabled:opacity-60 font-bold flex items-center justify-center gap-2 transition-colors text-sm">
           <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
             <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
@@ -96,6 +100,7 @@
 <script setup>
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
+import { getGoogleOAuthUrl, saveAuthSession, signup } from '../api/auth';
 
 // 입력 변수들 준비
 const name = ref('');
@@ -103,25 +108,55 @@ const email = ref('');
 const password = ref('');
 const passwordConfirm = ref('');
 const terms = ref(false);
+const isSubmitting = ref(false);
+const errorMessage = ref('');
 
 const router = useRouter();
 
 // 회원가입 버튼 눌렀을 때
-const handleSignup = () => {
+const handleSignup = async () => {
+    errorMessage.value = '';
+
     // 1. 비밀번호가 서로 같은지 검사
     if (password.value !== passwordConfirm.value) {
-        alert('비밀번호가 서로 일치하지 않습니다.');
+        errorMessage.value = '비밀번호가 서로 일치하지 않습니다.';
         return; 
     }
 
-    console.log("회원가입 데이터 확인:", { name: name.value, email: email.value });
+    if (!terms.value) {
+        errorMessage.value = '이용약관 및 개인정보 처리방침에 동의해주세요.';
+        return;
+    }
 
-    // 🌟 나중에 백엔드 팀원이 "회원가입 API 명세서"를 주면 여기에 fetch 코드를 넣으면 됩니다!
-    alert('회원가입 폼 데이터가 정상적으로 수집되었습니다! (백엔드 연동 대기 중)');
+    isSubmitting.value = true;
+
+    try {
+        const authData = await signup({
+            name: name.value,
+            email: email.value,
+            password: password.value
+        });
+
+        if (!authData?.accessToken || !authData?.refreshToken) {
+            throw new Error('서버로부터 올바른 토큰을 받지 못했습니다.');
+        }
+
+        saveAuthSession(authData);
+        router.push('/job-select');
+    } catch (error) {
+        console.error('회원가입 에러:', error);
+        errorMessage.value = error.message || '회원가입에 실패했습니다.';
+    } finally {
+        isSubmitting.value = false;
+    }
+};
+
+const startGoogleLogin = () => {
+    window.location.href = getGoogleOAuthUrl();
 };
 
 // 하단 '로그인' 글자 눌렀을 때
 const goToLogin = () => {
-    router.push('/'); // 로그인 화면(기본 경로)으로 돌아가기
+    router.push('/login'); // 로그인 화면으로 돌아가기
 };
 </script>
