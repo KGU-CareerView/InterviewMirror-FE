@@ -168,10 +168,7 @@ const viewDetail = (report) => {
         return;
     }
 
-    router.replace({
-        path: '/report',
-        query: { sessionId: report.sessionId }
-    });
+    router.push(`/report/${report.sessionId}`);
 };
 
 onMounted(loadReports);

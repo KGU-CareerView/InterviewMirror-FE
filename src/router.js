@@ -5,6 +5,7 @@ import SignupView from './pages/SignupView.vue';
 import InterviewView from './pages/InterviewView.vue';
 import PopupView from './pages/PopupView.vue';
 import ReportView from './pages/ReportView.vue';
+import ReportDetailView from './pages/ReportDetailView.vue';
 import HomeView from './pages/HomeView.vue';
 import InterviewSetupView from './pages/InterviewSetupView.vue';
 import JobSelectView from './pages/JobSelectView.vue';
@@ -28,6 +29,7 @@ const routes = [
   { path: '/popup', name: 'popup', component: PopupView, meta: { requiresAuth: true } },
   { path: '/signup', name: 'signup', component: SignupView },
   { path: '/report', name: 'report', component: ReportView, meta: { requiresAuth: true } },
+  { path: '/report/:sessionId', name: 'report-detail', component: ReportDetailView, meta: { requiresAuth: true } },
   {
     path: '/:pathMatch(.*)*',
     redirect: '/login'
