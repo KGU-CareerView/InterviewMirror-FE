@@ -396,6 +396,12 @@ const router = useRouter();
 const route = useRoute();
 
 const STOMP_NULL = "\u0000";
+const FACE_INPUT_SIZE = 224;
+const FACE_INPUT_SHAPE = [1, 3, FACE_INPUT_SIZE, FACE_INPUT_SIZE];
+const FACE_MEAN = [0.485, 0.456, 0.406];
+const FACE_STD = [0.229, 0.224, 0.225];
+const FACE_BBOX_MARGIN = 0.25;
+const REALTIME_FRAME_INTERVAL_MS = 800;
 
 // --- 인터페이스 리액티브 상태 정의 ---
 const isModalOpen = ref(false);
@@ -436,6 +442,7 @@ let sockJsOpen = false;
 let faceLandmarker = null;
 let isFaceLandmarkerLoading = false;
 let isFrameProcessing = false;
+let facePreprocessCanvas = null;
 const activeSessionId = ref(String(route.query.sessionId || localStorage.getItem("sessionId") || ""));
 const activeUserId = ref(String(localStorage.getItem("userId") || "1"));
 
@@ -731,30 +738,72 @@ const initFaceLandmarker = async () => {
   }
 };
 
-const flattenFaceLandmarks = (landmarks) => {
-  return landmarks.flatMap((point) => [
-    Number(point.x.toFixed(6)),
-    Number(point.y.toFixed(6)),
-    Number(point.z.toFixed(6)),
-  ]);
-};
-
-const flattenBlendshapes = (blendshapes = []) => {
-  return blendshapes.map((category) => Number(category.score.toFixed(6)));
-};
-
 const createFaceBoundingBox = (landmarks) => {
   const xs = landmarks.map((point) => point.x);
   const ys = landmarks.map((point) => point.y);
   const videoWidth = videoRef.value?.videoWidth || 1;
   const videoHeight = videoRef.value?.videoHeight || 1;
+  const rawX1 = Math.min(...xs) * videoWidth;
+  const rawY1 = Math.min(...ys) * videoHeight;
+  const rawX2 = Math.max(...xs) * videoWidth;
+  const rawY2 = Math.max(...ys) * videoHeight;
+  const width = rawX2 - rawX1;
+  const height = rawY2 - rawY1;
+  const marginX = width * FACE_BBOX_MARGIN;
+  const marginY = height * FACE_BBOX_MARGIN;
 
   return {
-    x1: Math.round(Math.min(...xs) * videoWidth),
-    y1: Math.round(Math.min(...ys) * videoHeight),
-    x2: Math.round(Math.max(...xs) * videoWidth),
-    y2: Math.round(Math.max(...ys) * videoHeight),
+    x1: Math.max(0, Math.round(rawX1 - marginX)),
+    y1: Math.max(0, Math.round(rawY1 - marginY)),
+    x2: Math.min(videoWidth, Math.round(rawX2 + marginX)),
+    y2: Math.min(videoHeight, Math.round(rawY2 + marginY)),
   };
+};
+
+const createEmptyFacePayload = () => ({
+  tensorShape: [...FACE_INPUT_SHAPE],
+  features: [],
+  faceDetected: false,
+  bbox: { x1: 0, y1: 0, x2: 0, y2: 0 },
+});
+
+const preprocessFaceCrop = (bbox) => {
+  const video = videoRef.value;
+  if (!video || bbox.x2 <= bbox.x1 || bbox.y2 <= bbox.y1) return null;
+
+  if (!facePreprocessCanvas) {
+    facePreprocessCanvas = document.createElement("canvas");
+    facePreprocessCanvas.width = FACE_INPUT_SIZE;
+    facePreprocessCanvas.height = FACE_INPUT_SIZE;
+  }
+
+  const context = facePreprocessCanvas.getContext("2d", { willReadFrequently: true });
+  if (!context) return null;
+
+  context.drawImage(
+    video,
+    bbox.x1,
+    bbox.y1,
+    bbox.x2 - bbox.x1,
+    bbox.y2 - bbox.y1,
+    0,
+    0,
+    FACE_INPUT_SIZE,
+    FACE_INPUT_SIZE,
+  );
+
+  const { data } = context.getImageData(0, 0, FACE_INPUT_SIZE, FACE_INPUT_SIZE);
+  const pixelCount = FACE_INPUT_SIZE * FACE_INPUT_SIZE;
+  const features = new Array(3 * pixelCount);
+
+  for (let i = 0; i < pixelCount; i++) {
+    const sourceIndex = i * 4;
+    features[i] = Number(((data[sourceIndex] / 255 - FACE_MEAN[0]) / FACE_STD[0]).toFixed(6));
+    features[pixelCount + i] = Number(((data[sourceIndex + 1] / 255 - FACE_MEAN[1]) / FACE_STD[1]).toFixed(6));
+    features[pixelCount * 2 + i] = Number(((data[sourceIndex + 2] / 255 - FACE_MEAN[2]) / FACE_STD[2]).toFixed(6));
+  }
+
+  return features;
 };
 
 const createFaceFeaturePayload = () => {
@@ -766,23 +815,21 @@ const createFaceFeaturePayload = () => {
   const landmarks = result.faceLandmarks?.[0];
 
   if (!landmarks?.length) {
-    return {
-      tensorShape: [1, 1],
-      features: [0],
-      faceDetected: false,
-    };
+    return createEmptyFacePayload();
   }
 
-  const blendshapes = result.faceBlendshapes?.[0]?.categories || [];
-  const landmarkFeatures = flattenFaceLandmarks(landmarks);
-  const blendshapeFeatures = flattenBlendshapes(blendshapes);
-  const features = [...landmarkFeatures, ...blendshapeFeatures];
+  const bbox = createFaceBoundingBox(landmarks);
+  const features = preprocessFaceCrop(bbox);
+
+  if (!features) {
+    return createEmptyFacePayload();
+  }
 
   return {
-    tensorShape: [1, features.length],
+    tensorShape: [...FACE_INPUT_SHAPE],
     features,
     faceDetected: true,
-    bbox: createFaceBoundingBox(landmarks),
+    bbox,
   };
 };
 
@@ -896,7 +943,7 @@ const startFrameTransmission = () => {
     } finally {
       isFrameProcessing = false;
     }
-  }, 1000 / 6);
+  }, REALTIME_FRAME_INTERVAL_MS);
 };
 
 const submitCurrentAnswer = () => {
