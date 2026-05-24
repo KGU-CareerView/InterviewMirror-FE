@@ -190,6 +190,50 @@
             {{ currentQuestion }}
           </div>
 
+          <transition
+            enter-active-class="transition-all duration-300 ease-out"
+            enter-from-class="opacity-0 translate-y-2"
+            enter-to-class="opacity-100 translate-y-0"
+            leave-active-class="transition-all duration-200 ease-in"
+            leave-from-class="opacity-100 translate-y-0"
+            leave-to-class="opacity-0 translate-y-2"
+          >
+            <div
+              v-if="showAudioFeedback"
+              :class="[
+                'mt-3 p-3 rounded-xl border text-xs font-bold flex items-start gap-2',
+                audioFeedbackIsGood
+                  ? 'bg-green-50 border-green-200 text-green-700'
+                  : 'bg-yellow-50 border-yellow-200 text-yellow-700',
+              ]"
+            >
+              <svg
+                v-if="audioFeedbackIsGood"
+                class="w-3.5 h-3.5 mt-0.5 shrink-0 text-green-500"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path>
+              </svg>
+              <svg
+                v-else
+                class="w-3.5 h-3.5 mt-0.5 shrink-0 text-yellow-500"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"
+                ></path>
+              </svg>
+              <span class="break-keep leading-relaxed">{{ audioFeedbackText }}</span>
+            </div>
+          </transition>
+
           <p class="text-xs text-gray-400 text-center mt-4 mb-2">답변을 마치면 아래 버튼을 눌러주세요.</p>
 
           <button
@@ -403,6 +447,11 @@ const FACE_STD = [0.229, 0.224, 0.225];
 const FACE_BBOX_MARGIN = 0.25;
 const REALTIME_FRAME_INTERVAL_MS = 800;
 
+const AUDIO_REALTIME_INTERVAL_MS = 1000;
+const PAUSE_MIN_MS = 500;
+const FILLER_BURST_MAX_MS = 300;
+const KOREAN_FILLERS = ["음", "어", "그", "네", "뭐", "아", "저"];
+
 // --- 인터페이스 리액티브 상태 정의 ---
 const isModalOpen = ref(false);
 const currentEmotion = ref("Stable");
@@ -431,11 +480,23 @@ const analyticsLog = { Stable: 0, Nervous: 0, Neutral: 0, totalTicks: 0 };
 const finalScores = ref({ stable: 0, nervous: 0, neutral: 0 });
 const aiFeedbackComment = ref("");
 
+// 음성 분석 리액티브 상태
+const isMicReady = ref(false);
+const currentTranscript = ref("");
+
+// 음성 실시간 피드백 상태
+const audioFeedbackText = ref("");
+const audioFeedbackIsGood = ref(true);
+const showAudioFeedback = ref(false);
+let audioFeedbackTimer = null;
+
 // 하드웨어 미디어 참조 변수
 const videoRef = ref(null);
 let localStream = null;
+let isFinishing = false;
 let socket = null;
 let imageStreamingInterval = null;
+let audioRealtimeInterval = null;
 let stompSubscriptionSeq = 0;
 let stompConnected = false;
 let sockJsOpen = false;
@@ -443,8 +504,26 @@ let faceLandmarker = null;
 let isFaceLandmarkerLoading = false;
 let isFrameProcessing = false;
 let facePreprocessCanvas = null;
+let audioContext = null;
+let audioWorkletNode = null;
+let micStream = null;
+let micIsStopped = false;
+let speechRecognition = null;
+let pendingAudioWindow = null;
 const activeSessionId = ref(String(route.query.sessionId || localStorage.getItem("sessionId") || ""));
 const activeUserId = ref(String(localStorage.getItem("userId") || "1"));
+
+// 음성 특징 누적기 — 질문 단위로 리셋
+const audioAcc = {
+  windows: [],
+  pauseSegments: [],
+  questionStartMs: 0,
+  firstSpeechMs: null,
+  inSilence: false,
+  silenceStartMs: null,
+  shortBursts: 0,
+  prevIsSpeaking: false,
+};
 
 // --- 타이머 포맷 계산 필드 ---
 const formattedTime = computed(() => {
@@ -472,9 +551,14 @@ const goToHome = () => {
 
 const goToReport = () => {
   isModalOpen.value = false;
+  if (!activeSessionId.value) {
+    router.push("/report");
+    return;
+  }
+
   router.push({
-    path: "/report",
-    query: { sessionId: activeSessionId.value },
+    name: "report-detail",
+    params: { sessionId: activeSessionId.value },
   });
 };
 
@@ -611,13 +695,14 @@ const subscribeInterviewTopics = () => {
   subscribeStompTopic(`/topic/realtime/${sessionId}`);
   subscribeStompTopic(`/topic/realtime/${sessionId}/errors`);
   subscribeStompTopic(`/topic/realtime/${sessionId}/completed`);
+  subscribeStompTopic(`/topic/realtime/${sessionId}/audio`);
 };
 
 const normalizeEmotionLabel = (label) => {
   const normalizedLabel = String(label || "").toUpperCase();
 
-  if (normalizedLabel === "NERVOUS") return "Nervous";
-  if (normalizedLabel === "STABLE") return "Stable";
+  if (normalizedLabel === "NERVOUS_ANXIOUS") return "Nervous";
+  if (normalizedLabel === "STABLE_CONFIDENT") return "Stable";
   return "Neutral";
 };
 
@@ -644,11 +729,13 @@ const handleQuestionEvent = (payload) => {
   }
 
   if (payload.type === "NEXT_QUESTION") {
+    if (isFinishing) return;
     if (questionIndex.value < totalQuestions.value) {
       questionIndex.value += 1;
     }
     currentQuestion.value = payload.question || "다음 질문을 불러왔습니다.";
     isWaitingForQuestion.value = false;
+    resetAudioAccumulator();
   }
 };
 
@@ -663,12 +750,36 @@ const handleRealtimeEvent = (payload) => {
   applyEmotionResult(result.label, result.feedback);
 };
 
+const handleAudioFeedbackEvent = (payload) => {
+  const data = payload.data || payload;
+  if (!data.status) return;
+
+  if (audioFeedbackTimer) clearTimeout(audioFeedbackTimer);
+
+  if (data.status === "OPTIMAL") {
+    audioFeedbackText.value = data.message || "음성 상태가 좋습니다";
+    audioFeedbackIsGood.value = true;
+    showAudioFeedback.value = true;
+    audioFeedbackTimer = setTimeout(() => {
+      showAudioFeedback.value = false;
+    }, 4000);
+  } else {
+    audioFeedbackText.value = data.message || "음성 품질을 확인해주세요";
+    audioFeedbackIsGood.value = false;
+    showAudioFeedback.value = true;
+    audioFeedbackTimer = setTimeout(() => {
+      showAudioFeedback.value = false;
+    }, 8000);
+  }
+};
+
 const handleStompFrame = (frame) => {
   if (frame.command === "CONNECTED") {
     stompConnected = true;
     console.log("STOMP 면접 채널 연결 완료");
     subscribeInterviewTopics();
     startFrameTransmission();
+    startAudioTransmission();
     return;
   }
 
@@ -689,6 +800,8 @@ const handleStompFrame = (frame) => {
     handleQuestionEvent(payload);
   } else if (destination.includes("/error") || destination.includes("/errors")) {
     handleErrorEvent(payload);
+  } else if (destination.includes("/realtime/") && destination.includes("/audio")) {
+    handleAudioFeedbackEvent(payload);
   } else if (destination.includes("/realtime/") && destination.includes("/completed")) {
     console.log("실시간 분석 종료 완료:", payload);
   } else if (destination.includes("/realtime/")) {
@@ -735,6 +848,110 @@ const initFaceLandmarker = async () => {
     return null;
   } finally {
     isFaceLandmarkerLoading = false;
+  }
+};
+
+const handleAudioWorkletMessage = ({ data: features }) => {
+  const now = Date.now();
+
+  if (features.isSpeaking && !audioAcc.firstSpeechMs) {
+    audioAcc.firstSpeechMs = now;
+  }
+
+  // 발화↔침묵 전환 시 포즈 구간 기록
+  if (audioAcc.prevIsSpeaking && !features.isSpeaking) {
+    audioAcc.silenceStartMs = now;
+    audioAcc.inSilence = true;
+  } else if (!audioAcc.prevIsSpeaking && features.isSpeaking && audioAcc.inSilence) {
+    const pauseDuration = now - audioAcc.silenceStartMs;
+    if (pauseDuration >= PAUSE_MIN_MS) {
+      audioAcc.pauseSegments.push({ durationMs: pauseDuration });
+    }
+    audioAcc.inSilence = false;
+  }
+
+  // 짧은 발화 burst → 필러음 근사 카운트
+  if (features.isSpeaking && features.speechDurationMs < FILLER_BURST_MAX_MS) {
+    audioAcc.shortBursts++;
+  }
+
+  audioAcc.prevIsSpeaking = features.isSpeaking;
+  audioAcc.windows.push(features);
+  pendingAudioWindow = features;
+};
+
+const initSpeechRecognition = () => {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) {
+    console.warn("Web Speech API 미지원 브라우저 — STT 비활성화");
+    return;
+  }
+
+  if (speechRecognition) return; // 중복 초기화 방지
+
+  speechRecognition = new SR();
+  speechRecognition.lang = "ko-KR";
+  speechRecognition.continuous = true;
+  speechRecognition.interimResults = true; // 중간 결과를 받아야 누락 없이 수집됨
+  speechRecognition.maxAlternatives = 1;
+
+  speechRecognition.onresult = (event) => {
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      if (event.results[i].isFinal) {
+        currentTranscript.value += event.results[i][0].transcript;
+      }
+    }
+  };
+
+  // continuous 모드에서도 침묵 후 자동 종료되므로 재시작 — 즉시 호출 시 Chrome이 throttle하므로 딜레이 추가
+  speechRecognition.onend = () => {
+    if (micIsStopped) return;
+    setTimeout(() => {
+      if (micIsStopped) return;
+      try {
+        speechRecognition.start();
+      } catch {
+        // 이미 실행 중이면 무시
+      }
+    }, 150);
+  };
+
+  speechRecognition.onerror = (event) => {
+    if (event.error === "not-allowed" || event.error === "service-not-allowed") {
+      console.warn("SpeechRecognition 권한 오류:", event.error);
+      micIsStopped = true;
+    }
+    // no-speech / network 오류는 onend에서 재시작 처리
+  };
+
+  micIsStopped = false;
+  speechRecognition.start();
+};
+
+const initMicStream = async () => {
+  if (!navigator.mediaDevices?.getUserMedia) return false;
+
+  try {
+    micStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+
+    audioContext = new AudioContext();
+    await audioContext.audioWorklet.addModule("/worklets/audio-processor.js");
+
+    const source = audioContext.createMediaStreamSource(micStream);
+    audioWorkletNode = new AudioWorkletNode(audioContext, "audio-feature-processor");
+    audioWorkletNode.port.onmessage = handleAudioWorkletMessage;
+
+    source.connect(audioWorkletNode);
+    // AudioWorkletNode을 destination에 연결하지 않아도 process()는 호출됨 (sink 역할)
+    audioWorkletNode.connect(audioContext.destination);
+
+    isMicReady.value = true;
+    audioAcc.questionStartMs = Date.now();
+    return true;
+  } catch (err) {
+    console.warn("마이크 초기화 실패 (음성 분석 비활성화):", err);
+    isMicReady.value = false;
+    return false;
   }
 };
 
@@ -946,14 +1163,111 @@ const startFrameTransmission = () => {
   }, REALTIME_FRAME_INTERVAL_MS);
 };
 
+const startAudioTransmission = () => {
+  if (audioRealtimeInterval) clearInterval(audioRealtimeInterval);
+
+  audioRealtimeInterval = setInterval(() => {
+    if (!stompConnected || !isMicReady.value || !pendingAudioWindow) return;
+
+    sendStompJson("/app/realtime.audio", {
+      sessionId: activeSessionId.value,
+      userId: activeUserId.value,
+      timestamp: Date.now(),
+      questionIndex: questionIndex.value,
+      windowMs: AUDIO_REALTIME_INTERVAL_MS,
+      features: pendingAudioWindow,
+    });
+    pendingAudioWindow = null;
+  }, AUDIO_REALTIME_INTERVAL_MS);
+};
+
+const calculateAudioSummary = () => {
+  const windows = audioAcc.windows;
+  if (!windows.length) return null;
+
+  const totalSpeechMs = windows.reduce((s, w) => s + w.speechDurationMs, 0);
+  const totalWindowMs = windows.length * AUDIO_REALTIME_INTERVAL_MS;
+  const speechRatio = totalWindowMs > 0 ? parseFloat((totalSpeechMs / totalWindowMs).toFixed(2)) : 0;
+
+  const speechWindows = windows.filter((w) => w.isSpeaking);
+  const rmsValues = speechWindows.map((w) => w.rms);
+  const avgRms =
+    rmsValues.length > 0
+      ? parseFloat((rmsValues.reduce((s, v) => s + v, 0) / rmsValues.length).toFixed(4))
+      : 0;
+  const rmsCoV =
+    rmsValues.length > 1 && avgRms > 0
+      ? parseFloat(
+          (
+            Math.sqrt(rmsValues.reduce((s, v) => s + (v - avgRms) ** 2, 0) / rmsValues.length) / avgRms
+          ).toFixed(3),
+        )
+      : 0;
+
+  const pauseCount = audioAcc.pauseSegments.length;
+  const avgPauseDurationMs =
+    pauseCount > 0
+      ? Math.round(audioAcc.pauseSegments.reduce((s, p) => s + p.durationMs, 0) / pauseCount)
+      : 0;
+  const maxPauseDurationMs =
+    pauseCount > 0 ? Math.max(...audioAcc.pauseSegments.map((p) => p.durationMs)) : 0;
+
+  const responseLatencyMs = audioAcc.firstSpeechMs ? audioAcc.firstSpeechMs - audioAcc.questionStartMs : 0;
+
+  const lastTwo = windows.slice(-2);
+  const lastAvgRms =
+    lastTwo.length > 0 ? lastTwo.reduce((s, w) => s + w.rms, 0) / lastTwo.length : 0;
+  const endFadeOut = avgRms > 0 && lastAvgRms < avgRms * 0.4;
+
+  const transcript = currentTranscript.value.trim();
+  const words = transcript ? transcript.split(/\s+/) : [];
+  const wordCount = words.length;
+  const uniqueWords = new Set(words).size;
+  const ttr = wordCount > 0 ? parseFloat((uniqueWords / wordCount).toFixed(2)) : 0;
+  const fillerWordCount = words.filter((w) => KOREAN_FILLERS.includes(w)).length;
+  const wpm = totalSpeechMs > 0 ? Math.round(wordCount / (totalSpeechMs / 60000)) : 0;
+
+  return {
+    speechRatio,
+    avgRms,
+    rmsCoV,
+    wpm,
+    pauseCount,
+    avgPauseDurationMs,
+    maxPauseDurationMs,
+    responseLatencyMs,
+    endFadeOut,
+    estimatedFillerCount: audioAcc.shortBursts,
+    fillerWordCount,
+    wordCount,
+    ttr,
+  };
+};
+
+const resetAudioAccumulator = () => {
+  audioAcc.windows = [];
+  audioAcc.pauseSegments = [];
+  audioAcc.questionStartMs = Date.now();
+  audioAcc.firstSpeechMs = null;
+  audioAcc.inSilence = false;
+  audioAcc.silenceStartMs = null;
+  audioAcc.shortBursts = 0;
+  audioAcc.prevIsSpeaking = false;
+  currentTranscript.value = "";
+  pendingAudioWindow = null;
+};
+
 const submitCurrentAnswer = () => {
   if (stompConnected) {
     isWaitingForQuestion.value = true;
+    const audioSummary = isMicReady.value ? calculateAudioSummary() : null;
+    const answer = currentTranscript.value.trim() || "사용자가 답변을 완료했습니다.";
     return sendStompJson("/app/session.answer", {
       sessionId: Number(activeSessionId.value),
-      answer: "사용자가 답변을 완료했습니다.",
+      answer,
       emotionResult: String(currentEmotion.value).toUpperCase(),
       responseTimeSeconds: timerSeconds.value,
+      ...(audioSummary && { audioSummary }),
     });
   }
 
@@ -972,6 +1286,7 @@ const requestNextQuestion = () => {
 };
 
 const completeInterview = () => {
+  isFinishing = true;
   submitCurrentAnswer();
   finishInterview({ redirectToReport: true });
 };
@@ -995,6 +1310,7 @@ const finishInterview = ({ redirectToReport = false } = {}) => {
     if (stompConnected) {
       sendStompJson("/app/realtime.end", {
         sessionId: activeSessionId.value,
+        includesAudio: isMicReady.value,
       });
     }
 
@@ -1061,12 +1377,24 @@ onMounted(async () => {
   timerInterval = setInterval(() => timerSeconds.value++, 1000);
   isCameraPermissionModalOpen.value = true;
   initWebSocketPipeline();
+
+  // STT는 AudioWorklet과 독립적으로 시작 (SpeechRecognition은 자체 마이크 관리)
+  initSpeechRecognition();
+
+  // AudioWorklet 기반 음성 특징 분석 (실패해도 STT/면접 진행에 영향 없음)
+  initMicStream();
 });
 
 onUnmounted(() => {
   if (timerInterval) clearInterval(timerInterval);
   if (imageStreamingInterval) clearInterval(imageStreamingInterval);
+  if (audioRealtimeInterval) clearInterval(audioRealtimeInterval);
+  if (audioFeedbackTimer) clearTimeout(audioFeedbackTimer);
   if (localStream) localStream.getTracks().forEach((track) => track.stop());
+  if (micStream) micStream.getTracks().forEach((track) => track.stop());
+  if (audioWorkletNode) audioWorkletNode.disconnect();
+  if (audioContext) audioContext.close();
+  if (speechRecognition) { micIsStopped = true; speechRecognition.stop(); }
   if (faceLandmarker) faceLandmarker.close();
   if (socket) socket.close();
 });
