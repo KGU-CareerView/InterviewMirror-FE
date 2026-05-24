@@ -87,6 +87,12 @@ export const exchangeOAuthCode = (code) => {
   return postAuth('/api/v1/auth/oauth/token', { code })
 }
 
+export const reissue = () => {
+  const refreshToken = localStorage.getItem('refreshToken')
+  if (!refreshToken) throw new Error('저장된 refresh token이 없습니다.')
+  return postAuth('/api/v1/auth/reissue', { refreshToken })
+}
+
 export const logout = (refreshToken) => {
   return postAuth('/api/v1/auth/logout', { refreshToken })
 }

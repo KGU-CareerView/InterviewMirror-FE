@@ -32,7 +32,91 @@
       <p class="text-sm font-medium text-slate-400">리포트를 불러오는 중...</p>
     </div>
 
-    <!-- Error -->
+    <!-- Waiting for AI report -->
+    <div v-else-if="isWaitingForReport" class="flex items-center justify-center h-[calc(100vh-3.5rem)] px-6">
+      <div class="bg-white rounded-3xl shadow-sm border border-slate-100 w-full max-w-lg p-10 flex flex-col items-center gap-7">
+
+        <!-- Animated icon -->
+        <div class="relative w-20 h-20">
+          <div class="absolute inset-0 rounded-full border-4 border-brand/15"></div>
+          <div class="absolute inset-0 rounded-full border-4 border-transparent border-t-brand animate-spin"></div>
+          <div class="absolute inset-2 rounded-full bg-brand/5 flex items-center justify-center">
+            <svg class="w-8 h-8 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+            </svg>
+          </div>
+        </div>
+
+        <!-- Title -->
+        <div class="text-center">
+          <h2 class="text-lg font-bold text-slate-800 mb-1">AI 리포트 생성 중</h2>
+          <p class="text-sm text-slate-400 break-keep leading-relaxed">면접 데이터를 종합 분석하여 맞춤형 리포트를 작성하고 있습니다.</p>
+        </div>
+
+        <!-- Progress bar -->
+        <div class="w-full space-y-2">
+          <div class="flex items-center justify-between text-xs">
+            <span class="font-medium text-slate-500 transition-all duration-500">{{ waitMessage }}</span>
+            <span class="font-bold text-brand tabular-nums">{{ waitProgress }}%</span>
+          </div>
+          <div class="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
+            <div
+              class="h-2.5 rounded-full bg-gradient-to-r from-brand to-brandHover transition-all duration-700 ease-out"
+              :style="{ width: waitProgress + '%' }"
+            ></div>
+          </div>
+        </div>
+
+        <!-- Steps -->
+        <div class="w-full space-y-2">
+          <div v-for="step in WAIT_STEPS" :key="step.threshold" class="flex items-center gap-3">
+            <div class="shrink-0 w-5 h-5 rounded-full flex items-center justify-center transition-all duration-300"
+              :class="waitProgress >= step.threshold
+                ? 'bg-brand'
+                : 'bg-slate-100'"
+            >
+              <svg v-if="waitProgress >= step.threshold" class="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+              </svg>
+              <div v-else class="w-1.5 h-1.5 rounded-full bg-slate-300"></div>
+            </div>
+            <span class="text-xs transition-colors duration-300"
+              :class="waitProgress >= step.threshold ? 'text-slate-700 font-medium' : 'text-slate-400'"
+            >{{ step.label }}</span>
+          </div>
+        </div>
+
+        <!-- 수동 재시도 (90초 이상 대기 시 노출) -->
+        <transition
+          enter-active-class="transition-all duration-500"
+          enter-from-class="opacity-0 translate-y-1"
+          enter-to-class="opacity-100 translate-y-0"
+        >
+          <div v-if="showManualRetry" class="w-full pt-2 border-t border-slate-100 flex flex-col items-center gap-2">
+            <p class="text-xs text-slate-400">시간이 오래 걸리고 있어요. AI 서버 일시 장애일 수 있습니다.</p>
+            <button
+              @click="retryReport"
+              :disabled="isRetrying"
+              class="flex items-center gap-1.5 text-sm font-bold text-brand hover:text-brandHover disabled:text-slate-400 transition-colors"
+            >
+              <svg v-if="isRetrying" class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/>
+              </svg>
+              <svg v-else class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+              </svg>
+              {{ isRetrying ? '재시도 요청 중...' : '직접 재시도하기' }}
+            </button>
+            <p v-if="retryError" class="text-xs text-red-500 break-keep text-center">{{ retryError }}</p>
+          </div>
+        </transition>
+
+        <p class="text-[11px] text-slate-300">보통 1~2분 소요됩니다. 페이지를 닫아도 괜찮습니다.</p>
+      </div>
+    </div>
+
+    <!-- Error: general -->
     <div v-else-if="loadError" class="flex flex-col items-center justify-center h-[calc(100vh-3.5rem)] gap-4 px-8 text-center">
       <div class="w-14 h-14 bg-red-50 rounded-2xl flex items-center justify-center">
         <svg class="w-7 h-7 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -44,6 +128,39 @@
         <p class="text-sm text-slate-400 break-keep">{{ loadError }}</p>
       </div>
       <button @click="loadReport" class="px-5 py-2.5 bg-brand text-white text-sm font-bold rounded-xl shadow-sm hover:bg-brandHover transition-colors">다시 시도</button>
+    </div>
+
+    <!-- Error: REPORT_GENERATION_FAILED -->
+    <div v-else-if="isReportFailed" class="flex items-center justify-center h-[calc(100vh-3.5rem)] px-6">
+      <div class="bg-white rounded-3xl shadow-sm border border-red-100 w-full max-w-md p-10 flex flex-col items-center gap-6 text-center">
+        <div class="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center">
+          <svg class="w-8 h-8 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+        </div>
+        <div>
+          <h2 class="text-lg font-bold text-slate-800 mb-2">리포트 생성에 실패했습니다</h2>
+          <p class="text-sm text-slate-400 leading-relaxed break-keep">AI 서버 오류로 리포트를 생성하지 못했습니다.<br>재시도 버튼을 누르면 다시 생성을 시도합니다.</p>
+        </div>
+
+        <p v-if="retryError" class="text-xs text-red-500 bg-red-50 rounded-xl px-4 py-2.5 w-full break-keep">{{ retryError }}</p>
+
+        <button
+          @click="retryReport"
+          :disabled="isRetrying"
+          class="w-full py-3.5 bg-brand hover:bg-brandHover disabled:bg-slate-200 disabled:text-slate-400 text-white font-bold rounded-xl text-sm transition-colors flex items-center justify-center gap-2"
+        >
+          <svg v-if="isRetrying" class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/>
+          </svg>
+          <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+          </svg>
+          {{ isRetrying ? 'AI 재분석 요청 중...' : '리포트 재생성 요청' }}
+        </button>
+        <button @click="goToHome" class="text-sm text-slate-400 hover:text-slate-600 transition-colors">홈으로 돌아가기</button>
+      </div>
     </div>
 
     <!-- Main content -->
@@ -381,9 +498,9 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { getInterviewReport, getInterviewResult } from '../api/interview';
+import { getInterviewReport, getInterviewResult, retryInterviewReport } from '../api/interview';
 
 const router = useRouter();
 const route = useRoute();
@@ -394,6 +511,102 @@ const resultData = ref(null);
 const isLoading = ref(false);
 const loadError = ref('');
 const expandedSet = ref(new Set());
+
+const isWaitingForReport = ref(false);
+const isReportFailed = ref(false);
+const isRetrying = ref(false);
+const retryError = ref('');
+const showManualRetry = ref(false);
+const waitProgress = ref(0);
+const waitMessage = ref('');
+let pollInterval = null;
+let progressInterval = null;
+let manualRetryTimeout = null;
+let waitStartTime = 0;
+
+const WAIT_STEPS = [
+  { threshold: 0,  label: '분석 준비 중' },
+  { threshold: 20, label: '음성 특징 분석' },
+  { threshold: 45, label: '답변 내용 평가' },
+  { threshold: 70, label: '표정·감정 데이터 종합' },
+  { threshold: 88, label: '최종 리포트 생성' },
+];
+
+const resolveWaitMessage = (progress) => {
+  return [...WAIT_STEPS].reverse().find(s => progress >= s.threshold)?.label + '...' || '준비 중...';
+};
+
+const stopWaiting = () => {
+  if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
+  if (progressInterval) { clearInterval(progressInterval); progressInterval = null; }
+  if (manualRetryTimeout) { clearTimeout(manualRetryTimeout); manualRetryTimeout = null; }
+};
+
+const startWaiting = () => {
+  isWaitingForReport.value = true;
+  isReportFailed.value = false;
+  showManualRetry.value = false;
+  waitProgress.value = 0;
+  waitMessage.value = resolveWaitMessage(0);
+  waitStartTime = Date.now();
+
+  // 90초 이상 대기 시 수동 재시도 버튼 노출
+  manualRetryTimeout = setTimeout(() => { showManualRetry.value = true; }, 90_000);
+
+  // 시간 기반 진행률: 35초 기준 지수 곡선으로 95%까지 채움
+  progressInterval = setInterval(() => {
+    const elapsed = (Date.now() - waitStartTime) / 1000;
+    const next = Math.min(95, Math.round(95 * (1 - Math.exp(-elapsed / 35))));
+    waitProgress.value = next;
+    waitMessage.value = resolveWaitMessage(next);
+  }, 600);
+
+  // 5초마다 폴링
+  pollInterval = setInterval(async () => {
+    try {
+      const [reportRes, resultRes] = await Promise.allSettled([
+        getInterviewReport(sessionId.value),
+        getInterviewResult(sessionId.value),
+      ]);
+
+      if (reportRes.status === 'rejected') {
+        const code = reportRes.reason?.code;
+        if (code === 'REPORT_NOT_READY') return; // 계속 대기
+        stopWaiting();
+        isWaitingForReport.value = false;
+        if (code === 'REPORT_GENERATION_FAILED') {
+          isReportFailed.value = true;
+        } else {
+          loadError.value = reportRes.reason?.message || '리포트를 불러오지 못했습니다.';
+        }
+        return;
+      }
+
+      // 완료
+      stopWaiting();
+      waitProgress.value = 100;
+      report.value = reportRes.value;
+      if (resultRes.status === 'fulfilled') resultData.value = resultRes.value;
+      setTimeout(() => { isWaitingForReport.value = false; }, 400);
+    } catch {
+      // 네트워크 일시 오류는 무시하고 계속 폴링
+    }
+  }, 5000);
+};
+
+const retryReport = async () => {
+  isRetrying.value = true;
+  retryError.value = '';
+  try {
+    await retryInterviewReport(sessionId.value);
+    isReportFailed.value = false;
+    startWaiting();
+  } catch (err) {
+    retryError.value = err.message || '재시도 요청에 실패했습니다. 잠시 후 다시 시도해주세요.';
+  } finally {
+    isRetrying.value = false;
+  }
+};
 
 const aiAnalysis = computed(() => {
   try { return JSON.parse(report.value?.aiAnalysisJson ?? '{}'); }
@@ -495,9 +708,16 @@ const loadReport = async () => {
       report.value = reportRes.value;
     } else {
       const err = reportRes.reason;
-      loadError.value = err.code === 'REPORT_NOT_READY'
-        ? 'AI 리포트가 아직 생성 중입니다. 잠시 후 다시 확인해주세요.'
-        : (err.message || '리포트를 불러오지 못했습니다.');
+      if (err.code === 'REPORT_NOT_READY') {
+        isLoading.value = false;
+        startWaiting();
+        return;
+      }
+      if (err.code === 'REPORT_GENERATION_FAILED') {
+        isReportFailed.value = true;
+        return;
+      }
+      loadError.value = err.message || '리포트를 불러오지 못했습니다.';
       return;
     }
 
@@ -511,8 +731,9 @@ const loadReport = async () => {
   }
 };
 
-const goBack = () => router.back();
-const goToHome = () => router.push('/home');
+const goBack = () => { stopWaiting(); router.back(); };
+const goToHome = () => { stopWaiting(); router.push('/home'); };
 
 onMounted(loadReport);
+onUnmounted(stopWaiting);
 </script>

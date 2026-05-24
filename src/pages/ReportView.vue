@@ -47,28 +47,64 @@
             v-for="report in reports"
             :key="report.sessionId"
             @click="viewDetail(report)"
-            class="bg-white border-2 border-slate-100 p-4 rounded-3xl shadow-sm hover:border-brand/40 transition-all cursor-pointer group active:scale-95 transform"
+            class="bg-white border-2 p-4 rounded-3xl shadow-sm transition-all transform"
+            :class="{
+              'border-slate-100 hover:border-brand/40 cursor-pointer group active:scale-95': report.status !== 'failed',
+              'border-red-100 bg-red-50/30 cursor-default': report.status === 'failed',
+            }"
           >
             <div class="flex justify-between items-start mb-3">
               <div>
                 <span class="text-[10px] font-bold text-slate-400 block mb-1">{{ formatDate(report.createTime) }}</span>
-                <h3 class="text-sm font-bold text-slate-800 tracking-tight group-hover:text-brand transition-colors">
+                <h3 class="text-sm font-bold tracking-tight transition-colors"
+                  :class="report.status === 'failed' ? 'text-red-700' : 'text-slate-800 group-hover:text-brand'"
+                >
                   면접 #{{ report.sessionId }} 리포트
                 </h3>
               </div>
-              <span
-                class="px-2.5 py-1 text-[10px] font-bold rounded-lg"
-                :class="report.isReady ? 'bg-brand text-white shadow-sm' : 'bg-slate-100 text-slate-400'"
-              >
-                {{ report.isReady ? `점수 ${report.totalScore ?? '-'}점` : '준비중' }}
+              <span class="px-2.5 py-1 text-[10px] font-bold rounded-lg shrink-0" :class="{
+                'bg-brand text-white shadow-sm': report.status === 'ready',
+                'bg-slate-100 text-slate-400': report.status === 'pending',
+                'bg-red-100 text-red-500': report.status === 'failed',
+              }">
+                {{ report.status === 'ready' ? `${report.totalScore ?? '-'}점` : report.status === 'failed' ? '생성 실패' : '준비중' }}
               </span>
             </div>
-            <div class="flex items-center gap-4 border-t border-slate-50 pt-3">
-              <div class="flex items-center gap-1.5 min-w-0">
-                <svg class="w-3.5 h-3.5 text-slate-300 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
-                <span class="text-[11px] text-slate-500 font-medium truncate">{{ report.summary }}</span>
+
+            <div class="flex items-center gap-4 border-t pt-3"
+              :class="report.status === 'failed' ? 'border-red-100' : 'border-slate-50'"
+            >
+              <div class="flex items-center gap-1.5 min-w-0 flex-1">
+                <svg class="w-3.5 h-3.5 shrink-0"
+                  :class="report.status === 'failed' ? 'text-red-300' : 'text-slate-300'"
+                  fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                </svg>
+                <span class="text-[11px] font-medium truncate"
+                  :class="report.status === 'failed' ? 'text-red-400' : 'text-slate-500'"
+                >{{ report.summary }}</span>
               </div>
+
+              <!-- 재시도 버튼 (failed 상태에만 노출) -->
+              <button
+                v-if="report.status === 'failed'"
+                @click.stop="retryReport(report.sessionId)"
+                :disabled="retryingIds.has(report.sessionId)"
+                class="shrink-0 flex items-center gap-1 px-3 py-1.5 bg-brand hover:bg-brandHover disabled:bg-slate-200 disabled:text-slate-400 text-white text-[11px] font-bold rounded-xl transition-colors"
+              >
+                <svg v-if="retryingIds.has(report.sessionId)" class="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/>
+                </svg>
+                <svg v-else class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                </svg>
+                {{ retryingIds.has(report.sessionId) ? '요청 중...' : '재시도' }}
+              </button>
             </div>
+
+            <!-- 재시도 에러 메시지 -->
+            <p v-if="report.retryError" class="mt-2 text-[11px] text-red-400 break-keep">{{ report.retryError }}</p>
           </div>
         </template>
 
@@ -84,7 +120,7 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { getInterviewHistory, getInterviewReport } from '../api/interview';
+import { getInterviewHistory, getInterviewReport, retryInterviewReport } from '../api/interview';
 
 const router = useRouter();
 const route = useRoute();
@@ -92,6 +128,7 @@ const route = useRoute();
 const reports = ref([]);
 const isLoading = ref(false);
 const loadError = ref('');
+const retryingIds = ref(new Set());
 
 const totalReportCount = computed(() => reports.value.length);
 const averageScoreLabel = computed(() => {
@@ -107,15 +144,21 @@ const goToHome = () => {
 };
 
 const normalizeReport = (sessionId, report = null, error = null) => {
+    const code = error?.code;
+    const status = report ? 'ready' : code === 'REPORT_GENERATION_FAILED' ? 'failed' : 'pending';
     return {
         sessionId,
         createTime: report?.createTime || '',
         totalScore: Number.isFinite(report?.totalScore) ? report.totalScore : null,
         feedback: report?.feedback || '',
-        isReady: Boolean(report && !error),
-        summary: error?.code === 'REPORT_NOT_READY'
-            ? 'AI 리포트 생성 대기 중'
-            : report?.feedback || '분석 결과를 확인할 수 있습니다.'
+        status,
+        isReady: status === 'ready',
+        summary: status === 'failed'
+            ? 'AI 서버 오류로 생성에 실패했습니다'
+            : status === 'pending'
+                ? 'AI 리포트 생성 대기 중'
+                : report?.feedback || '분석 결과를 확인할 수 있습니다.',
+        retryError: '',
     };
 };
 
@@ -163,12 +206,33 @@ const loadReports = async () => {
 };
 
 const viewDetail = (report) => {
-    if (!report.isReady) {
-        loadError.value = '아직 리포트가 준비되지 않았습니다. 잠시 후 다시 확인해주세요.';
-        return;
-    }
-
+    if (report.status === 'failed') return;
     router.push(`/report/${report.sessionId}`);
+};
+
+const retryReport = async (sessionId) => {
+    const next = new Set(retryingIds.value);
+    next.add(sessionId);
+    retryingIds.value = next;
+
+    try {
+        await retryInterviewReport(sessionId);
+        reports.value = reports.value.map((r) =>
+            r.sessionId === sessionId
+                ? { ...r, status: 'pending', summary: 'AI 리포트 재생성 중', retryError: '' }
+                : r
+        );
+    } catch (err) {
+        reports.value = reports.value.map((r) =>
+            r.sessionId === sessionId
+                ? { ...r, retryError: err.message || '재시도 요청에 실패했습니다.' }
+                : r
+        );
+    } finally {
+        const done = new Set(retryingIds.value);
+        done.delete(sessionId);
+        retryingIds.value = done;
+    }
 };
 
 onMounted(loadReports);

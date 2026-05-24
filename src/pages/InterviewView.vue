@@ -725,6 +725,8 @@ const handleQuestionEvent = (payload) => {
     questionIndex.value = 1;
     totalQuestions.value = payload.questions?.length || totalQuestions.value;
     isWaitingForQuestion.value = false;
+    startFrameTransmission();
+    startAudioTransmission();
     return;
   }
 
@@ -778,8 +780,6 @@ const handleStompFrame = (frame) => {
     stompConnected = true;
     console.log("STOMP 면접 채널 연결 완료");
     subscribeInterviewTopics();
-    startFrameTransmission();
-    startAudioTransmission();
     return;
   }
 
@@ -1300,8 +1300,17 @@ const handleAnswerButtonClick = () => {
   requestNextQuestion();
 };
 
+const stopCamera = () => {
+  if (imageStreamingInterval) { clearInterval(imageStreamingInterval); imageStreamingInterval = null; }
+  if (localStream) { localStream.getTracks().forEach((track) => track.stop()); localStream = null; }
+  if (videoRef.value) videoRef.value.srcObject = null;
+  isCameraReady.value = false;
+};
+
 // 5. 모의 면접 세션 종료 처리 및 통계 가공 알고리즘 (안전 보정 추가)
 const finishInterview = ({ redirectToReport = false } = {}) => {
+  stopCamera();
+
   if (!redirectToReport) {
     isModalOpen.value = true; // 강제로 무조건 팝업 오픈
   }

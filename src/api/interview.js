@@ -1,4 +1,13 @@
 import { apiUrl } from '../config/env'
+import { reissue, saveAuthSession, clearAuthSession } from './auth'
+
+let isRefreshing = false
+let refreshSubscribers = []
+
+const onRefreshed = () => {
+  refreshSubscribers.forEach((cb) => cb())
+  refreshSubscribers = []
+}
 
 const getAccessToken = () => localStorage.getItem('accessToken') || ''
 
@@ -23,7 +32,7 @@ const parseResponseBody = async (response) => {
   }
 }
 
-const request = async (path, options = {}) => {
+const executeRequest = async (path, options = {}) => {
   const response = await fetch(apiUrl(path), {
     ...options,
     headers: createHeaders(options.headers)
@@ -32,9 +41,9 @@ const request = async (path, options = {}) => {
   const isApiFailure = body && typeof body === 'object' && body.success === false
 
   if (!response.ok || isApiFailure) {
-    const error = new Error(body?.message || `API 요청 실패 (${response.status})`)
+    const error = new Error(body?.message || body?.error?.message || `API 요청 실패 (${response.status})`)
     error.status = response.status
-    error.code = body?.code
+    error.code = body?.code ?? body?.error?.code
     error.data = body?.data
     throw error
   }
@@ -44,6 +53,40 @@ const request = async (path, options = {}) => {
   }
 
   return body
+}
+
+const request = async (path, options = {}) => {
+  try {
+    return await executeRequest(path, options)
+  } catch (error) {
+    if (error.status !== 401) throw error
+
+    if (isRefreshing) {
+      return new Promise((resolve, reject) => {
+        refreshSubscribers.push(async () => {
+          try {
+            resolve(await executeRequest(path, options))
+          } catch (retryError) {
+            reject(retryError)
+          }
+        })
+      })
+    }
+
+    isRefreshing = true
+    try {
+      const authData = await reissue()
+      saveAuthSession(authData)
+      onRefreshed()
+      return await executeRequest(path, options)
+    } catch {
+      clearAuthSession()
+      window.location.href = '/login'
+      throw error
+    } finally {
+      isRefreshing = false
+    }
+  }
 }
 
 const jsonRequest = (path, method, body) => {
@@ -84,6 +127,10 @@ export const getInterviewHistory = () => {
 
 export const getInterviewReport = (sessionId) => {
   return request(`/api/v1/interviews/${sessionId}/report`)
+}
+
+export const retryInterviewReport = (sessionId) => {
+  return request(`/api/v1/interviews/${sessionId}/report/retry`, { method: 'POST' })
 }
 
 export const getPresignedUrl = (sessionId, fileType) => {
