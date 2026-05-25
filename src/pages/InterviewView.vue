@@ -887,12 +887,12 @@ const initSpeechRecognition = () => {
           `[STT] final +${text.length}자: "${text}" | 누적: "${currentTranscript.value}" | pending: "${pendingTranscript}"`,
         );
       } else {
-        interim = event.results[i][0].transcript;
-        pendingTranscript += interim;
+        interim += event.results[i][0].transcript;
       }
     }
     currentInterim = interim;
     if (interim) console.log(`[STT] interim: "${currentTranscript.value}${interim}"`);
+    pendingTranscript += interim;
   };
 
   speechRecognition.onend = () => {
