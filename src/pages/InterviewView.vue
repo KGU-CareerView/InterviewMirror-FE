@@ -1177,6 +1177,7 @@ const startAudioTransmission = () => {
     if (!stompConnected || !isMicReady.value || pendingAudioWindows.length === 0) return;
 
     const windows = pendingAudioWindows.splice(0);
+    const transcript = (currentTranscript.value + pendingInterim).trim();
     const sent = sendStompJson("/app/realtime.audio", {
       sessionId: activeSessionId.value,
       userId: activeUserId.value,
@@ -1184,8 +1185,9 @@ const startAudioTransmission = () => {
       questionIndex: questionIndex.value,
       windowMs: AUDIO_REALTIME_INTERVAL_MS,
       windows,
+      transcript,
     });
-    console.log(`[AUDIO] 전송 ${sent ? "성공" : "실패(소켓 미연결)"} | windows=${windows.length} | rms=${windows.map((w) => w.rms).join(",")} | isSpeaking=${windows.map((w) => w.isSpeaking).join(",")} | transcript="${currentTranscript.value}"`);
+    console.log(`[AUDIO] 전송 ${sent ? "성공" : "실패(소켓 미연결)"} | windows=${windows.length} | transcript="${transcript}"`);
   }, AUDIO_REALTIME_INTERVAL_MS);
 };
 
