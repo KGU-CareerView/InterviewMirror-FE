@@ -414,7 +414,7 @@ const FACE_INPUT_SHAPE = [1, 3, FACE_INPUT_SIZE, FACE_INPUT_SIZE];
 const FACE_MEAN = [0.485, 0.456, 0.406];
 const FACE_STD = [0.229, 0.224, 0.225];
 const FACE_BBOX_MARGIN = 0.25;
-const REALTIME_FRAME_INTERVAL_MS = 1000;
+const REALTIME_FRAME_INTERVAL_MS = 800;
 
 const AUDIO_REALTIME_INTERVAL_MS = 1000;
 const PAUSE_MIN_MS = 500;
@@ -478,8 +478,8 @@ let audioWorkletNode = null;
 let micStream = null;
 let micIsStopped = false;
 let speechRecognition = null;
-let pendingInterim = '';
-let pendingAudioWindow = null;
+let pendingInterim = "";
+let pendingAudioWindows = [];
 const activeSessionId = ref(String(route.query.sessionId || localStorage.getItem("sessionId") || ""));
 const activeUserId = ref(String(localStorage.getItem("userId") || "1"));
 
@@ -847,7 +847,7 @@ const handleAudioWorkletMessage = ({ data: features }) => {
 
   audioAcc.prevIsSpeaking = features.isSpeaking;
   audioAcc.windows.push(features);
-  pendingAudioWindow = features;
+  pendingAudioWindows.push(features);
 };
 
 const initSpeechRecognition = () => {
@@ -866,11 +866,11 @@ const initSpeechRecognition = () => {
   speechRecognition.maxAlternatives = 1;
 
   speechRecognition.onresult = (event) => {
-    let interim = '';
+    let interim = "";
     for (let i = event.resultIndex; i < event.results.length; i++) {
       if (event.results[i].isFinal) {
         currentTranscript.value += event.results[i][0].transcript;
-        interim = '';
+        interim = "";
       } else {
         interim += event.results[i][0].transcript;
       }
@@ -882,7 +882,7 @@ const initSpeechRecognition = () => {
   speechRecognition.onend = () => {
     if (pendingInterim) {
       currentTranscript.value += pendingInterim;
-      pendingInterim = '';
+      pendingInterim = "";
     }
     if (micIsStopped) return;
     setTimeout(() => {
@@ -914,6 +914,7 @@ const initMicStream = async () => {
     micStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
 
     audioContext = new AudioContext();
+    if (audioContext.state === "suspended") await audioContext.resume();
     await audioContext.audioWorklet.addModule("/worklets/audio-processor.js");
 
     const source = audioContext.createMediaStreamSource(micStream);
@@ -1146,17 +1147,17 @@ const startAudioTransmission = () => {
   if (audioRealtimeInterval) clearInterval(audioRealtimeInterval);
 
   audioRealtimeInterval = setInterval(() => {
-    if (!stompConnected || !isMicReady.value || !pendingAudioWindow) return;
+    if (!stompConnected || !isMicReady.value || pendingAudioWindows.length === 0) return;
 
+    const windows = pendingAudioWindows.splice(0);
     sendStompJson("/app/realtime.audio", {
       sessionId: activeSessionId.value,
       userId: activeUserId.value,
       timestamp: Date.now(),
       questionIndex: questionIndex.value,
       windowMs: AUDIO_REALTIME_INTERVAL_MS,
-      features: pendingAudioWindow,
+      windows,
     });
-    pendingAudioWindow = null;
   }, AUDIO_REALTIME_INTERVAL_MS);
 };
 
@@ -1225,7 +1226,7 @@ const resetAudioAccumulator = () => {
   audioAcc.shortBursts = 0;
   audioAcc.prevIsSpeaking = false;
   currentTranscript.value = "";
-  pendingInterim = '';
+  pendingInterim = "";
   pendingAudioWindows = [];
 };
 
