@@ -879,7 +879,7 @@ const initSpeechRecognition = () => {
       const text = event.results[i][0].transcript;
       currentTranscript.value += text;
       pendingTranscript += text;
-      console.log(`[STT] final: "${text}" | 누적: "${currentTranscript.value}"`);
+      console.log(`[STT] +${text.length}자: "${text}" | 누적: "${currentTranscript.value}" | pending: "${pendingTranscript}"`);
     }
   };
 
