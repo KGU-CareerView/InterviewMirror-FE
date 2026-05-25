@@ -1180,7 +1180,7 @@ const startAudioTransmission = () => {
     if (!stompConnected || !isMicReady.value || pendingAudioWindows.length === 0) return;
 
     const windows = pendingAudioWindows.splice(0);
-    const transcript = (pendingTranscript + pendingInterim).trim();
+    const transcript = pendingTranscript.trim();
     const sent = sendStompJson("/app/realtime.audio", {
       sessionId: activeSessionId.value,
       userId: activeUserId.value,
