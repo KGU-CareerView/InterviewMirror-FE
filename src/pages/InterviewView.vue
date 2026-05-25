@@ -478,7 +478,6 @@ let audioWorkletNode = null;
 let micStream = null;
 let micIsStopped = false;
 let speechRecognition = null;
-let pendingInterim = "";
 let sttStatusInterval = null;
 let pendingAudioWindows = [];
 let pendingTranscript = "";
@@ -872,36 +871,20 @@ const initSpeechRecognition = () => {
   speechRecognition = new SR();
   speechRecognition.lang = "ko-KR";
   speechRecognition.continuous = true;
-  speechRecognition.interimResults = true; // 중간 결과를 받아야 누락 없이 수집됨
+  speechRecognition.interimResults = false;
   speechRecognition.maxAlternatives = 1;
 
   speechRecognition.onresult = (event) => {
-    let interim = "";
     for (let i = event.resultIndex; i < event.results.length; i++) {
-      if (event.results[i].isFinal) {
-        const text = event.results[i][0].transcript;
-        currentTranscript.value += text;
-        pendingTranscript += text;
-        interim = "";
-        console.log(`[STT] final: "${text}" | 누적: "${currentTranscript.value}"`);
-      } else {
-        interim += event.results[i][0].transcript;
-      }
+      const text = event.results[i][0].transcript;
+      currentTranscript.value += text;
+      pendingTranscript += text;
+      console.log(`[STT] final: "${text}" | 누적: "${currentTranscript.value}"`);
     }
-    if (interim) console.log(`[STT] interim: "${interim}"`);
-    pendingInterim = interim;
   };
 
-  // onend 발생 시 isFinal 없이 소멸할 interim 결과를 먼저 커밋
   speechRecognition.onend = () => {
-    if (pendingInterim) {
-      console.log(`[STT] onend interim 커밋: "${pendingInterim}"`);
-      currentTranscript.value += pendingInterim;
-      pendingTranscript += pendingInterim;
-      pendingInterim = "";
-    } else {
-      console.log("[STT] onend — 재시작");
-    }
+    console.log("[STT] onend — 재시작");
     if (micIsStopped) return;
     setTimeout(() => {
       if (micIsStopped) return;
@@ -1191,7 +1174,9 @@ const startAudioTransmission = () => {
       transcript,
     });
     if (sent) pendingTranscript = "";
-    console.log(`[AUDIO] 전송 ${sent ? "성공" : "실패(소켓 미연결)"} | windows=${windows.length} | transcript="${transcript}"`);
+    console.log(
+      `[AUDIO] 전송 ${sent ? "성공" : "실패(소켓 미연결)"} | windows=${windows.length} | transcript="${transcript}"`,
+    );
   }, AUDIO_REALTIME_INTERVAL_MS);
 };
 
@@ -1260,7 +1245,6 @@ const resetAudioAccumulator = () => {
   audioAcc.shortBursts = 0;
   audioAcc.prevIsSpeaking = false;
   currentTranscript.value = "";
-  pendingInterim = "";
   pendingAudioWindows = [];
   pendingTranscript = "";
 };
@@ -1410,7 +1394,9 @@ onMounted(async () => {
   initSpeechRecognition();
   sttStatusInterval = setInterval(() => {
     const state = speechRecognition ? (micIsStopped ? "stopped" : "running") : "not-initialized";
-    console.log(`[STT] 상태=${state} | 누적="${currentTranscript.value}" | interim="${pendingInterim}" | Q${questionIndex.value}`);
+    console.log(
+      `[STT] 상태=${state} | 누적="${currentTranscript.value}" | Q${questionIndex.value}`,
+    );
   }, 10000);
 
   // AudioWorklet 기반 음성 특징 분석 (실패해도 STT/면접 진행에 영향 없음)
