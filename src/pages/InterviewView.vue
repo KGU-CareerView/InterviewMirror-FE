@@ -1160,7 +1160,8 @@ const startAudioTransmission = () => {
   if (audioRealtimeInterval) clearInterval(audioRealtimeInterval);
 
   audioRealtimeInterval = setInterval(() => {
-    if (!stompConnected || !isMicReady.value || pendingAudioWindows.length === 0) return;
+    if (!stompConnected || !isMicReady.value) return;
+    if (pendingAudioWindows.length === 0 && !pendingTranscript) return;
 
     const windows = pendingAudioWindows.splice(0);
     const transcript = pendingTranscript.trim();
