@@ -481,6 +481,7 @@ let speechRecognition = null;
 let pendingInterim = "";
 let sttStatusInterval = null;
 let pendingAudioWindows = [];
+let currentQuestionAnswered = false;
 const activeSessionId = ref(String(route.query.sessionId || localStorage.getItem("sessionId") || ""));
 const activeUserId = ref(String(localStorage.getItem("userId") || "1"));
 
@@ -695,6 +696,7 @@ const handleQuestionEvent = (payload) => {
     currentQuestion.value = payload.firstQuestion || payload.questions?.[0]?.question || "첫 질문을 불러왔습니다.";
     questionIndex.value = 1;
     totalQuestions.value = payload.questions?.length || totalQuestions.value;
+    currentQuestionAnswered = false;
     isWaitingForQuestion.value = false;
     startFrameTransmission();
     startAudioTransmission();
@@ -707,6 +709,7 @@ const handleQuestionEvent = (payload) => {
       questionIndex.value += 1;
     }
     currentQuestion.value = payload.question || "다음 질문을 불러왔습니다.";
+    currentQuestionAnswered = false;
     isWaitingForQuestion.value = false;
     resetAudioAccumulator();
   }
@@ -1256,7 +1259,12 @@ const resetAudioAccumulator = () => {
 };
 
 const submitCurrentAnswer = () => {
+  if (currentQuestionAnswered) {
+    console.warn("[ANSWER] 이미 제출된 질문 — 중복 전송 차단");
+    return false;
+  }
   if (stompConnected) {
+    currentQuestionAnswered = true;
     isWaitingForQuestion.value = true;
     const audioSummary = isMicReady.value ? calculateAudioSummary() : null;
     const answer = currentTranscript.value.trim() || "사용자가 답변을 완료했습니다.";
