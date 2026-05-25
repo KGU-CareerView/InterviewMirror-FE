@@ -25,7 +25,6 @@
     </header>
 
     <main class="flex-1 relative overflow-hidden bg-black">
-
       <!-- 카메라 피드 (전체 화면) -->
       <video
         ref="videoRef"
@@ -41,7 +40,10 @@
       >
         <div class="w-16 h-16 rounded-2xl bg-white/10 border border-white/10 flex items-center justify-center mb-5">
           <svg class="w-8 h-8 text-brandLight" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="1.8"
               d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
             ></path>
           </svg>
@@ -53,41 +55,61 @@
       </div>
 
       <!-- 좌상단: 감정 분석 패널 -->
-      <div class="absolute top-4 left-4 bg-black/50 backdrop-blur-md rounded-2xl px-3.5 py-3 border border-white/10 min-w-[88px]">
+      <div
+        class="absolute top-4 left-4 bg-black/50 backdrop-blur-md rounded-2xl px-3.5 py-3 border border-white/10 min-w-[88px]"
+      >
         <p class="text-[9px] font-bold text-white/50 uppercase tracking-widest mb-2.5">감정 분석</p>
         <div class="space-y-2">
           <div class="flex items-center gap-2">
             <span class="relative flex h-2.5 w-2.5 shrink-0">
-              <span v-if="currentEmotion === 'Stable'" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand opacity-75"></span>
-              <span class="relative inline-flex rounded-full h-2.5 w-2.5 transition-colors duration-300"
+              <span
+                v-if="currentEmotion === 'Stable'"
+                class="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand opacity-75"
+              ></span>
+              <span
+                class="relative inline-flex rounded-full h-2.5 w-2.5 transition-colors duration-300"
                 :class="currentEmotion === 'Stable' ? 'bg-brand' : 'bg-white/20'"
               ></span>
             </span>
-            <span class="text-xs transition-all duration-300"
+            <span
+              class="text-xs transition-all duration-300"
               :class="currentEmotion === 'Stable' ? 'font-bold text-brandLight' : 'font-medium text-white/40'"
-            >안정</span>
+              >안정</span
+            >
           </div>
           <div class="flex items-center gap-2">
             <span class="relative flex h-2.5 w-2.5 shrink-0">
-              <span v-if="currentEmotion === 'Neutral'" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-white/70 opacity-75"></span>
-              <span class="relative inline-flex rounded-full h-2.5 w-2.5 transition-colors duration-300"
+              <span
+                v-if="currentEmotion === 'Neutral'"
+                class="animate-ping absolute inline-flex h-full w-full rounded-full bg-white/70 opacity-75"
+              ></span>
+              <span
+                class="relative inline-flex rounded-full h-2.5 w-2.5 transition-colors duration-300"
                 :class="currentEmotion === 'Neutral' ? 'bg-white' : 'bg-white/20'"
               ></span>
             </span>
-            <span class="text-xs transition-all duration-300"
+            <span
+              class="text-xs transition-all duration-300"
               :class="currentEmotion === 'Neutral' ? 'font-bold text-white' : 'font-medium text-white/40'"
-            >무표정</span>
+              >무표정</span
+            >
           </div>
           <div class="flex items-center gap-2">
             <span class="relative flex h-2.5 w-2.5 shrink-0">
-              <span v-if="currentEmotion === 'Nervous'" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-              <span class="relative inline-flex rounded-full h-2.5 w-2.5 transition-colors duration-300"
+              <span
+                v-if="currentEmotion === 'Nervous'"
+                class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"
+              ></span>
+              <span
+                class="relative inline-flex rounded-full h-2.5 w-2.5 transition-colors duration-300"
                 :class="currentEmotion === 'Nervous' ? 'bg-red-500' : 'bg-white/20'"
               ></span>
             </span>
-            <span class="text-xs transition-all duration-300"
+            <span
+              class="text-xs transition-all duration-300"
               :class="currentEmotion === 'Nervous' ? 'font-bold text-red-400' : 'font-medium text-white/40'"
-            >긴장</span>
+              >긴장</span
+            >
           </div>
         </div>
       </div>
@@ -105,8 +127,9 @@
       </div>
 
       <!-- 하단 중앙: 경고 + 음성 피드백 -->
-      <div class="absolute bottom-5 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 pointer-events-none w-full max-w-xl px-6">
-
+      <div
+        class="absolute bottom-5 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 pointer-events-none w-full max-w-xl px-6"
+      >
         <!-- 긴장 감지 경고 -->
         <transition
           enter-active-class="transition-all duration-300 ease-out"
@@ -116,7 +139,8 @@
           leave-from-class="opacity-100 translate-y-0"
           leave-to-class="opacity-0 translate-y-3"
         >
-          <div v-if="currentEmotion === 'Nervous'"
+          <div
+            v-if="currentEmotion === 'Nervous'"
             class="bg-black/75 backdrop-blur-md text-white px-5 py-2.5 rounded-full border border-red-500/40 text-sm font-medium flex items-center gap-2.5 shadow-lg"
           >
             <span class="text-red-400">⚠️</span>
@@ -133,7 +157,8 @@
           leave-from-class="opacity-100 translate-y-0"
           leave-to-class="opacity-0 translate-y-3"
         >
-          <div v-if="showWarning && warningMessage && currentEmotion !== 'Nervous'"
+          <div
+            v-if="showWarning && warningMessage && currentEmotion !== 'Nervous'"
             class="bg-black/75 backdrop-blur-md text-yellow-300 px-5 py-2.5 rounded-full border border-yellow-500/30 text-sm font-medium shadow-lg"
           >
             {{ warningMessage }}
@@ -149,29 +174,38 @@
           leave-from-class="opacity-100 translate-y-0"
           leave-to-class="opacity-0 translate-y-3"
         >
-          <div v-if="showAudioFeedback"
+          <div
+            v-if="showAudioFeedback"
             class="bg-black/75 backdrop-blur-md px-5 py-2.5 rounded-full border text-sm font-medium flex items-center gap-2 shadow-lg"
-            :class="audioFeedbackIsGood
-              ? 'border-green-500/40 text-green-300'
-              : 'border-yellow-500/40 text-yellow-300'"
+            :class="audioFeedbackIsGood ? 'border-green-500/40 text-green-300' : 'border-yellow-500/40 text-yellow-300'"
           >
-            <svg v-if="audioFeedbackIsGood" class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+            <svg
+              v-if="audioFeedbackIsGood"
+              class="w-4 h-4 shrink-0"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
             </svg>
             <svg v-else class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"
+              />
             </svg>
             <span class="break-keep">{{ audioFeedbackText }}</span>
           </div>
         </transition>
-
       </div>
-
     </main>
 
     <!-- 하단 바 -->
-    <footer class="w-full h-16 bg-brandLight/40 flex items-center justify-between px-8 border-t border-brandLight/60 shrink-0">
+    <footer
+      class="w-full h-16 bg-brandLight/40 flex items-center justify-between px-8 border-t border-brandLight/60 shrink-0"
+    >
       <p class="text-sm text-gray-500">답변을 마치면 오른쪽 버튼을 눌러주세요.</p>
       <button
         @click="handleAnswerButtonClick"
@@ -181,10 +215,10 @@
       >
         {{ answerButtonLabel }}
         <svg v-if="!isLastQuestion" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/>
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7" />
         </svg>
         <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
         </svg>
       </button>
     </footer>
@@ -380,7 +414,7 @@ const FACE_INPUT_SHAPE = [1, 3, FACE_INPUT_SIZE, FACE_INPUT_SIZE];
 const FACE_MEAN = [0.485, 0.456, 0.406];
 const FACE_STD = [0.229, 0.224, 0.225];
 const FACE_BBOX_MARGIN = 0.25;
-const REALTIME_FRAME_INTERVAL_MS = 800;
+const REALTIME_FRAME_INTERVAL_MS = 1000;
 
 const AUDIO_REALTIME_INTERVAL_MS = 1000;
 const PAUSE_MIN_MS = 500;
@@ -1127,31 +1161,23 @@ const calculateAudioSummary = () => {
   const speechWindows = windows.filter((w) => w.isSpeaking);
   const rmsValues = speechWindows.map((w) => w.rms);
   const avgRms =
-    rmsValues.length > 0
-      ? parseFloat((rmsValues.reduce((s, v) => s + v, 0) / rmsValues.length).toFixed(4))
-      : 0;
+    rmsValues.length > 0 ? parseFloat((rmsValues.reduce((s, v) => s + v, 0) / rmsValues.length).toFixed(4)) : 0;
   const rmsCoV =
     rmsValues.length > 1 && avgRms > 0
       ? parseFloat(
-          (
-            Math.sqrt(rmsValues.reduce((s, v) => s + (v - avgRms) ** 2, 0) / rmsValues.length) / avgRms
-          ).toFixed(3),
+          (Math.sqrt(rmsValues.reduce((s, v) => s + (v - avgRms) ** 2, 0) / rmsValues.length) / avgRms).toFixed(3),
         )
       : 0;
 
   const pauseCount = audioAcc.pauseSegments.length;
   const avgPauseDurationMs =
-    pauseCount > 0
-      ? Math.round(audioAcc.pauseSegments.reduce((s, p) => s + p.durationMs, 0) / pauseCount)
-      : 0;
-  const maxPauseDurationMs =
-    pauseCount > 0 ? Math.max(...audioAcc.pauseSegments.map((p) => p.durationMs)) : 0;
+    pauseCount > 0 ? Math.round(audioAcc.pauseSegments.reduce((s, p) => s + p.durationMs, 0) / pauseCount) : 0;
+  const maxPauseDurationMs = pauseCount > 0 ? Math.max(...audioAcc.pauseSegments.map((p) => p.durationMs)) : 0;
 
   const responseLatencyMs = audioAcc.firstSpeechMs ? audioAcc.firstSpeechMs - audioAcc.questionStartMs : 0;
 
   const lastTwo = windows.slice(-2);
-  const lastAvgRms =
-    lastTwo.length > 0 ? lastTwo.reduce((s, w) => s + w.rms, 0) / lastTwo.length : 0;
+  const lastAvgRms = lastTwo.length > 0 ? lastTwo.reduce((s, w) => s + w.rms, 0) / lastTwo.length : 0;
   const endFadeOut = avgRms > 0 && lastAvgRms < avgRms * 0.4;
 
   const transcript = currentTranscript.value.trim();
@@ -1236,8 +1262,14 @@ const handleAnswerButtonClick = () => {
 };
 
 const stopCamera = () => {
-  if (imageStreamingInterval) { clearInterval(imageStreamingInterval); imageStreamingInterval = null; }
-  if (localStream) { localStream.getTracks().forEach((track) => track.stop()); localStream = null; }
+  if (imageStreamingInterval) {
+    clearInterval(imageStreamingInterval);
+    imageStreamingInterval = null;
+  }
+  if (localStream) {
+    localStream.getTracks().forEach((track) => track.stop());
+    localStream = null;
+  }
   if (videoRef.value) videoRef.value.srcObject = null;
   isCameraReady.value = false;
 };
@@ -1338,7 +1370,10 @@ onUnmounted(() => {
   if (micStream) micStream.getTracks().forEach((track) => track.stop());
   if (audioWorkletNode) audioWorkletNode.disconnect();
   if (audioContext) audioContext.close();
-  if (speechRecognition) { micIsStopped = true; speechRecognition.stop(); }
+  if (speechRecognition) {
+    micIsStopped = true;
+    speechRecognition.stop();
+  }
   if (faceLandmarker) faceLandmarker.close();
   if (socket) socket.close();
 });
