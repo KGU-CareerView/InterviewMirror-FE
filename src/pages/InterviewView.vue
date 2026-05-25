@@ -24,235 +24,170 @@
       </div>
     </header>
 
-    <main class="flex-1 w-full flex p-6 gap-6 h-full relative">
-      <aside class="w-[15%] flex flex-col gap-4">
-        <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-200 h-full flex flex-col">
-          <h3 class="text-sm font-bold text-gray-700 mb-4 flex items-center gap-2">
-            <svg class="w-4 h-4 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-              ></path>
-            </svg>
-            AI 안면 분석
-          </h3>
+    <main class="flex-1 relative overflow-hidden bg-black">
 
-          <div class="space-y-3 flex-1">
-            <div
-              :class="[
-                'flex items-center justify-between p-3 rounded-xl border transition-all duration-200',
-                currentEmotion === 'Stable'
-                  ? 'bg-brandLight/30 border-brand/30 ring-1 ring-brand/20'
-                  : 'bg-gray-50 border-gray-100 opacity-60',
-              ]"
-            >
-              <span
-                :class="[
-                  'text-sm',
-                  currentEmotion === 'Stable' ? 'font-bold text-brandHover' : 'font-medium text-gray-500',
-                ]"
-                >Stable (안정)</span
-              >
-              <span class="relative flex h-3 w-3">
-                <span
-                  v-if="currentEmotion === 'Stable'"
-                  class="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand opacity-75"
-                ></span>
-                <span
-                  :class="[
-                    'relative inline-flex rounded-full h-3 w-3',
-                    currentEmotion === 'Stable' ? 'bg-brand' : 'bg-gray-300',
-                  ]"
-                ></span>
-              </span>
-            </div>
+      <!-- 카메라 피드 (전체 화면) -->
+      <video
+        ref="videoRef"
+        autoplay
+        playsinline
+        class="absolute inset-0 w-full h-full object-cover transform -scale-x-100"
+      ></video>
 
-            <div
-              :class="[
-                'flex items-center justify-between p-3 rounded-xl border transition-all duration-200',
-                currentEmotion === 'Neutral'
-                  ? 'bg-brandLight/30 border-brand/30 ring-1 ring-brand/20'
-                  : 'bg-gray-50 border-gray-100 opacity-60',
-              ]"
-            >
-              <span
-                :class="[
-                  'text-sm',
-                  currentEmotion === 'Neutral' ? 'font-bold text-brandHover' : 'font-medium text-gray-500',
-                ]"
-                >Neutral (무표정)</span
-              >
-              <span class="relative flex h-3 w-3">
-                <span
-                  v-if="currentEmotion === 'Neutral'"
-                  class="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand opacity-75"
-                ></span>
-                <span
-                  :class="[
-                    'relative inline-flex rounded-full h-3 w-3',
-                    currentEmotion === 'Neutral' ? 'bg-brand' : 'bg-gray-300',
-                  ]"
-                ></span>
-              </span>
-            </div>
+      <!-- 카메라 없음 오버레이 -->
+      <div
+        v-if="!isCameraReady"
+        class="absolute inset-0 bg-gray-950 text-white flex flex-col items-center justify-center px-8 text-center"
+      >
+        <div class="w-16 h-16 rounded-2xl bg-white/10 border border-white/10 flex items-center justify-center mb-5">
+          <svg class="w-8 h-8 text-brandLight" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
+              d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+            ></path>
+          </svg>
+        </div>
+        <h2 class="text-xl font-bold mb-2">카메라 없이 진행 중</h2>
+        <p class="text-sm text-gray-300 leading-relaxed break-keep">
+          질문 답변은 계속 진행할 수 있으며, 실시간 표정 분석만 제외됩니다.
+        </p>
+      </div>
 
-            <div
-              :class="[
-                'flex items-center justify-between p-3 rounded-xl border transition-all duration-200',
-                currentEmotion === 'Nervous'
-                  ? 'bg-red-50 border-red-200 ring-1 ring-red-100'
-                  : 'bg-gray-50 border-gray-100 opacity-60',
-              ]"
-            >
-              <span
-                :class="[
-                  'text-sm',
-                  currentEmotion === 'Nervous' ? 'font-bold text-red-600' : 'font-medium text-gray-500',
-                ]"
-                >Nervous (긴장)</span
-              >
-              <span class="relative flex h-3 w-3">
-                <span
-                  v-if="currentEmotion === 'Nervous'"
-                  class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"
-                ></span>
-                <span
-                  :class="[
-                    'relative inline-flex rounded-full h-3 w-3',
-                    currentEmotion === 'Nervous' ? 'bg-red-500' : 'bg-gray-300',
-                  ]"
-                ></span>
-              </span>
-            </div>
+      <!-- 좌상단: 감정 분석 패널 -->
+      <div class="absolute top-4 left-4 bg-black/50 backdrop-blur-md rounded-2xl px-3.5 py-3 border border-white/10 min-w-[88px]">
+        <p class="text-[9px] font-bold text-white/50 uppercase tracking-widest mb-2.5">감정 분석</p>
+        <div class="space-y-2">
+          <div class="flex items-center gap-2">
+            <span class="relative flex h-2.5 w-2.5 shrink-0">
+              <span v-if="currentEmotion === 'Stable'" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand opacity-75"></span>
+              <span class="relative inline-flex rounded-full h-2.5 w-2.5 transition-colors duration-300"
+                :class="currentEmotion === 'Stable' ? 'bg-brand' : 'bg-white/20'"
+              ></span>
+            </span>
+            <span class="text-xs transition-all duration-300"
+              :class="currentEmotion === 'Stable' ? 'font-bold text-brandLight' : 'font-medium text-white/40'"
+            >안정</span>
           </div>
+          <div class="flex items-center gap-2">
+            <span class="relative flex h-2.5 w-2.5 shrink-0">
+              <span v-if="currentEmotion === 'Neutral'" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-white/70 opacity-75"></span>
+              <span class="relative inline-flex rounded-full h-2.5 w-2.5 transition-colors duration-300"
+                :class="currentEmotion === 'Neutral' ? 'bg-white' : 'bg-white/20'"
+              ></span>
+            </span>
+            <span class="text-xs transition-all duration-300"
+              :class="currentEmotion === 'Neutral' ? 'font-bold text-white' : 'font-medium text-white/40'"
+            >무표정</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="relative flex h-2.5 w-2.5 shrink-0">
+              <span v-if="currentEmotion === 'Nervous'" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+              <span class="relative inline-flex rounded-full h-2.5 w-2.5 transition-colors duration-300"
+                :class="currentEmotion === 'Nervous' ? 'bg-red-500' : 'bg-white/20'"
+              ></span>
+            </span>
+            <span class="text-xs transition-all duration-300"
+              :class="currentEmotion === 'Nervous' ? 'font-bold text-red-400' : 'font-medium text-white/40'"
+            >긴장</span>
+          </div>
+        </div>
+      </div>
 
-          <div
-            v-if="showWarning"
-            class="mt-4 p-3 bg-yellow-50 text-yellow-700 text-xs font-bold rounded-xl border border-yellow-200 animate-bounce"
+      <!-- 상단 중앙: 현재 질문 -->
+      <div class="absolute top-4 left-1/2 -translate-x-1/2 w-[52%] max-w-2xl pointer-events-none">
+        <div class="bg-black/55 backdrop-blur-md rounded-2xl px-5 py-3.5 border border-white/10 shadow-xl">
+          <div class="flex items-start gap-3">
+            <span class="shrink-0 mt-0.5 px-2 py-0.5 bg-brand text-white text-[10px] font-black rounded-md">
+              Q{{ questionIndex }}/{{ totalQuestions }}
+            </span>
+            <p class="text-sm font-semibold text-white leading-relaxed break-keep">{{ currentQuestion }}</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- 하단 중앙: 경고 + 음성 피드백 -->
+      <div class="absolute bottom-5 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 pointer-events-none w-full max-w-xl px-6">
+
+        <!-- 긴장 감지 경고 -->
+        <transition
+          enter-active-class="transition-all duration-300 ease-out"
+          enter-from-class="opacity-0 translate-y-3"
+          enter-to-class="opacity-100 translate-y-0"
+          leave-active-class="transition-all duration-200 ease-in"
+          leave-from-class="opacity-100 translate-y-0"
+          leave-to-class="opacity-0 translate-y-3"
+        >
+          <div v-if="currentEmotion === 'Nervous'"
+            class="bg-black/75 backdrop-blur-md text-white px-5 py-2.5 rounded-full border border-red-500/40 text-sm font-medium flex items-center gap-2.5 shadow-lg"
+          >
+            <span class="text-red-400">⚠️</span>
+            긴장이 감지됩니다. 심호흡을 하고 편안하게 답변해 보세요.
+          </div>
+        </transition>
+
+        <!-- 시스템 경고 (서버 오류 등, 긴장 상태와 중복 방지) -->
+        <transition
+          enter-active-class="transition-all duration-300 ease-out"
+          enter-from-class="opacity-0 translate-y-3"
+          enter-to-class="opacity-100 translate-y-0"
+          leave-active-class="transition-all duration-200 ease-in"
+          leave-from-class="opacity-100 translate-y-0"
+          leave-to-class="opacity-0 translate-y-3"
+        >
+          <div v-if="showWarning && warningMessage && currentEmotion !== 'Nervous'"
+            class="bg-black/75 backdrop-blur-md text-yellow-300 px-5 py-2.5 rounded-full border border-yellow-500/30 text-sm font-medium shadow-lg"
           >
             {{ warningMessage }}
           </div>
-        </div>
-      </aside>
+        </transition>
 
-      <section
-        class="w-[70%] bg-black rounded-3xl shadow-lg relative overflow-hidden flex flex-col items-center justify-center border-4 border-gray-800"
-      >
-        <video
-          ref="videoRef"
-          autoplay
-          playsinline
-          class="w-full h-full object-cover rounded-2xl transform -scale-x-100"
-        ></video>
-
-        <div
-          v-if="!isCameraReady"
-          class="absolute inset-0 bg-gray-950 text-white flex flex-col items-center justify-center px-8 text-center"
+        <!-- 음성 피드백 -->
+        <transition
+          enter-active-class="transition-all duration-300 ease-out"
+          enter-from-class="opacity-0 translate-y-3"
+          enter-to-class="opacity-100 translate-y-0"
+          leave-active-class="transition-all duration-200 ease-in"
+          leave-from-class="opacity-100 translate-y-0"
+          leave-to-class="opacity-0 translate-y-3"
         >
-          <div class="w-16 h-16 rounded-2xl bg-white/10 border border-white/10 flex items-center justify-center mb-5">
-            <svg class="w-8 h-8 text-brandLight" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="1.8"
-                d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
-              ></path>
-            </svg>
-          </div>
-          <h2 class="text-xl font-bold mb-2">카메라 없이 진행 중</h2>
-          <p class="text-sm text-gray-300 leading-relaxed break-keep">
-            질문 답변은 계속 진행할 수 있으며, 실시간 표정 분석만 제외됩니다.
-          </p>
-        </div>
-
-        <div
-          v-if="currentEmotion === 'Nervous'"
-          class="absolute bottom-10 left-1/2 transform -translate-x-1/2 bg-black/75 text-white px-6 py-3 rounded-full backdrop-blur-md text-sm font-medium border border-white/10 shadow-2xl flex items-center gap-3 animate-fade-in"
-        >
-          <span class="text-brandLight">💡</span> 심호흡을 하고 편안하게 답변해 보세요.
-        </div>
-      </section>
-
-      <aside class="w-[15%] flex flex-col gap-4">
-        <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-200 h-full flex flex-col">
-          <div class="flex items-center justify-between mb-4">
-            <h3 class="text-sm font-bold text-gray-700">현재 질문</h3>
-            <span class="text-xs font-bold text-brand bg-brandLight/50 px-2 py-1 rounded-md"
-              >Q {{ questionIndex }} / {{ totalQuestions }}</span
-            >
-          </div>
-
-          <div
-            class="text-base text-gray-800 font-semibold leading-relaxed flex-1 mt-2 p-4 bg-gray-50 rounded-xl border border-gray-100 break-keep overflow-y-auto"
+          <div v-if="showAudioFeedback"
+            class="bg-black/75 backdrop-blur-md px-5 py-2.5 rounded-full border text-sm font-medium flex items-center gap-2 shadow-lg"
+            :class="audioFeedbackIsGood
+              ? 'border-green-500/40 text-green-300'
+              : 'border-yellow-500/40 text-yellow-300'"
           >
-            {{ currentQuestion }}
+            <svg v-if="audioFeedbackIsGood" class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+            </svg>
+            <svg v-else class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+            </svg>
+            <span class="break-keep">{{ audioFeedbackText }}</span>
           </div>
+        </transition>
 
-          <transition
-            enter-active-class="transition-all duration-300 ease-out"
-            enter-from-class="opacity-0 translate-y-2"
-            enter-to-class="opacity-100 translate-y-0"
-            leave-active-class="transition-all duration-200 ease-in"
-            leave-from-class="opacity-100 translate-y-0"
-            leave-to-class="opacity-0 translate-y-2"
-          >
-            <div
-              v-if="showAudioFeedback"
-              :class="[
-                'mt-3 p-3 rounded-xl border text-xs font-bold flex items-start gap-2',
-                audioFeedbackIsGood
-                  ? 'bg-green-50 border-green-200 text-green-700'
-                  : 'bg-yellow-50 border-yellow-200 text-yellow-700',
-              ]"
-            >
-              <svg
-                v-if="audioFeedbackIsGood"
-                class="w-3.5 h-3.5 mt-0.5 shrink-0 text-green-500"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path>
-              </svg>
-              <svg
-                v-else
-                class="w-3.5 h-3.5 mt-0.5 shrink-0 text-yellow-500"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"
-                ></path>
-              </svg>
-              <span class="break-keep leading-relaxed">{{ audioFeedbackText }}</span>
-            </div>
-          </transition>
+      </div>
 
-          <p class="text-xs text-gray-400 text-center mt-4 mb-2">답변을 마치면 아래 버튼을 눌러주세요.</p>
-
-          <button
-            @click="handleAnswerButtonClick"
-            :disabled="isWaitingForQuestion"
-            class="w-full py-4 bg-brand hover:bg-brandHover text-white rounded-xl font-bold transition-colors duration-200 shadow-md flex items-center justify-center gap-2"
-            :class="isWaitingForQuestion ? 'opacity-50 cursor-not-allowed' : ''"
-          >
-            {{ answerButtonLabel }}
-            <svg v-if="!isLastQuestion" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"></path>
-            </svg>
-            <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path>
-            </svg>
-          </button>
-        </div>
-      </aside>
     </main>
+
+    <!-- 하단 바 -->
+    <footer class="w-full h-16 bg-brandLight/40 flex items-center justify-between px-8 border-t border-brandLight/60 shrink-0">
+      <p class="text-sm text-gray-500">답변을 마치면 오른쪽 버튼을 눌러주세요.</p>
+      <button
+        @click="handleAnswerButtonClick"
+        :disabled="isWaitingForQuestion"
+        class="px-6 py-2 bg-brand hover:bg-brandHover text-white rounded-lg font-bold text-sm transition-colors duration-200 flex items-center gap-2"
+        :class="isWaitingForQuestion ? 'opacity-50 cursor-not-allowed' : ''"
+      >
+        {{ answerButtonLabel }}
+        <svg v-if="!isLastQuestion" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/>
+        </svg>
+        <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+        </svg>
+      </button>
+    </footer>
 
     <div
       v-if="isCameraPermissionModalOpen && !isModalOpen"
