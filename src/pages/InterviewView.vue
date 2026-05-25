@@ -478,6 +478,7 @@ let audioWorkletNode = null;
 let micStream = null;
 let micIsStopped = false;
 let speechRecognition = null;
+let pendingInterim = '';
 let pendingAudioWindow = null;
 const activeSessionId = ref(String(route.query.sessionId || localStorage.getItem("sessionId") || ""));
 const activeUserId = ref(String(localStorage.getItem("userId") || "1"));
@@ -865,15 +866,24 @@ const initSpeechRecognition = () => {
   speechRecognition.maxAlternatives = 1;
 
   speechRecognition.onresult = (event) => {
+    let interim = '';
     for (let i = event.resultIndex; i < event.results.length; i++) {
       if (event.results[i].isFinal) {
         currentTranscript.value += event.results[i][0].transcript;
+        interim = '';
+      } else {
+        interim += event.results[i][0].transcript;
       }
     }
+    pendingInterim = interim;
   };
 
-  // continuous 모드에서도 침묵 후 자동 종료되므로 재시작 — 즉시 호출 시 Chrome이 throttle하므로 딜레이 추가
+  // onend 발생 시 isFinal 없이 소멸할 interim 결과를 먼저 커밋
   speechRecognition.onend = () => {
+    if (pendingInterim) {
+      currentTranscript.value += pendingInterim;
+      pendingInterim = '';
+    }
     if (micIsStopped) return;
     setTimeout(() => {
       if (micIsStopped) return;
@@ -1215,7 +1225,8 @@ const resetAudioAccumulator = () => {
   audioAcc.shortBursts = 0;
   audioAcc.prevIsSpeaking = false;
   currentTranscript.value = "";
-  pendingAudioWindow = null;
+  pendingInterim = '';
+  pendingAudioWindows = [];
 };
 
 const submitCurrentAnswer = () => {
