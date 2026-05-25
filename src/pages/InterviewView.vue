@@ -822,7 +822,12 @@ const initFaceLandmarker = async () => {
   }
 };
 
+let _workletFirstMessage = true;
 const handleAudioWorkletMessage = ({ data: features }) => {
+  if (_workletFirstMessage) {
+    console.log("[MIC] AudioWorklet 첫 번째 window 수신 — 정상 동작 중", features);
+    _workletFirstMessage = false;
+  }
   const now = Date.now();
 
   if (features.isSpeaking && !audioAcc.firstSpeechMs) {
@@ -916,28 +921,39 @@ const initSpeechRecognition = () => {
 };
 
 const initMicStream = async () => {
-  if (!navigator.mediaDevices?.getUserMedia) return false;
+  if (!navigator.mediaDevices?.getUserMedia) {
+    console.warn("[MIC] getUserMedia 미지원");
+    return false;
+  }
 
   try {
     micStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+    console.log("[MIC] 마이크 스트림 획득 성공");
 
     audioContext = new AudioContext();
-    if (audioContext.state === "suspended") await audioContext.resume();
+    console.log(`[MIC] AudioContext 생성 — state=${audioContext.state}, sampleRate=${audioContext.sampleRate}`);
+    if (audioContext.state === "suspended") {
+      await audioContext.resume();
+      console.log(`[MIC] AudioContext resume 완료 — state=${audioContext.state}`);
+    }
+
     await audioContext.audioWorklet.addModule("/worklets/audio-processor.js");
+    console.log("[MIC] AudioWorklet 모듈 로드 완료");
 
     const source = audioContext.createMediaStreamSource(micStream);
     audioWorkletNode = new AudioWorkletNode(audioContext, "audio-feature-processor");
     audioWorkletNode.port.onmessage = handleAudioWorkletMessage;
 
     source.connect(audioWorkletNode);
-    // AudioWorkletNode을 destination에 연결하지 않아도 process()는 호출됨 (sink 역할)
     audioWorkletNode.connect(audioContext.destination);
+    console.log("[MIC] AudioWorklet 파이프라인 연결 완료 — 1초마다 window 수신 시작");
 
     isMicReady.value = true;
     audioAcc.questionStartMs = Date.now();
     return true;
   } catch (err) {
     console.warn("마이크 초기화 실패 (음성 분석 비활성화):", err);
+    console.error("[MIC] 초기화 실패:", err);
     isMicReady.value = false;
     return false;
   }
@@ -1158,7 +1174,7 @@ const startAudioTransmission = () => {
     if (!stompConnected || !isMicReady.value || pendingAudioWindows.length === 0) return;
 
     const windows = pendingAudioWindows.splice(0);
-    sendStompJson("/app/realtime.audio", {
+    const sent = sendStompJson("/app/realtime.audio", {
       sessionId: activeSessionId.value,
       userId: activeUserId.value,
       timestamp: Date.now(),
@@ -1166,6 +1182,7 @@ const startAudioTransmission = () => {
       windowMs: AUDIO_REALTIME_INTERVAL_MS,
       windows,
     });
+    console.log(`[AUDIO] 전송 ${sent ? "성공" : "실패(소켓 미연결)"} | windows=${windows.length} | rms=${windows.map((w) => w.rms).join(",")} | isSpeaking=${windows.map((w) => w.isSpeaking).join(",")} | transcript="${currentTranscript.value}"`);
   }, AUDIO_REALTIME_INTERVAL_MS);
 };
 
