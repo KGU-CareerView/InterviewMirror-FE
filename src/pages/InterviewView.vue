@@ -481,6 +481,7 @@ let speechRecognition = null;
 let pendingInterim = "";
 let sttStatusInterval = null;
 let pendingAudioWindows = [];
+let pendingTranscript = "";
 let currentQuestionAnswered = false;
 const activeSessionId = ref(String(route.query.sessionId || localStorage.getItem("sessionId") || ""));
 const activeUserId = ref(String(localStorage.getItem("userId") || "1"));
@@ -880,6 +881,7 @@ const initSpeechRecognition = () => {
       if (event.results[i].isFinal) {
         const text = event.results[i][0].transcript;
         currentTranscript.value += text;
+        pendingTranscript += text;
         interim = "";
         console.log(`[STT] final: "${text}" | 누적: "${currentTranscript.value}"`);
       } else {
@@ -895,6 +897,7 @@ const initSpeechRecognition = () => {
     if (pendingInterim) {
       console.log(`[STT] onend interim 커밋: "${pendingInterim}"`);
       currentTranscript.value += pendingInterim;
+      pendingTranscript += pendingInterim;
       pendingInterim = "";
     } else {
       console.log("[STT] onend — 재시작");
@@ -1177,7 +1180,7 @@ const startAudioTransmission = () => {
     if (!stompConnected || !isMicReady.value || pendingAudioWindows.length === 0) return;
 
     const windows = pendingAudioWindows.splice(0);
-    const transcript = (currentTranscript.value + pendingInterim).trim();
+    const transcript = (pendingTranscript + pendingInterim).trim();
     const sent = sendStompJson("/app/realtime.audio", {
       sessionId: activeSessionId.value,
       userId: activeUserId.value,
@@ -1187,6 +1190,7 @@ const startAudioTransmission = () => {
       windows,
       transcript,
     });
+    if (sent) pendingTranscript = "";
     console.log(`[AUDIO] 전송 ${sent ? "성공" : "실패(소켓 미연결)"} | windows=${windows.length} | transcript="${transcript}"`);
   }, AUDIO_REALTIME_INTERVAL_MS);
 };
@@ -1258,6 +1262,7 @@ const resetAudioAccumulator = () => {
   currentTranscript.value = "";
   pendingInterim = "";
   pendingAudioWindows = [];
+  pendingTranscript = "";
 };
 
 const submitCurrentAnswer = () => {
@@ -1269,7 +1274,7 @@ const submitCurrentAnswer = () => {
     currentQuestionAnswered = true;
     isWaitingForQuestion.value = true;
     const audioSummary = isMicReady.value ? calculateAudioSummary() : null;
-    const answer = currentTranscript.value.trim() || "사용자가 답변을 완료했습니다.";
+    const answer = currentTranscript.value.trim();
     return sendStompJson("/app/session.answer", {
       sessionId: Number(activeSessionId.value),
       answer,
