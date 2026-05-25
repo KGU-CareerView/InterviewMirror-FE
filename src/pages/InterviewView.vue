@@ -883,9 +883,12 @@ const initSpeechRecognition = () => {
         currentTranscript.value += text;
         pendingTranscript += text;
         interim = "";
-        console.log(`[STT] final +${text.length}자: "${text}" | 누적: "${currentTranscript.value}" | pending: "${pendingTranscript}"`);
+        console.log(
+          `[STT] final +${text.length}자: "${text}" | 누적: "${currentTranscript.value}" | pending: "${pendingTranscript}"`,
+        );
       } else {
-        interim += event.results[i][0].transcript;
+        interim = event.results[i][0].transcript;
+        pendingTranscript += interim;
       }
     }
     currentInterim = interim;
@@ -1405,9 +1408,7 @@ onMounted(async () => {
   initSpeechRecognition();
   sttStatusInterval = setInterval(() => {
     const state = speechRecognition ? (micIsStopped ? "stopped" : "running") : "not-initialized";
-    console.log(
-      `[STT] 상태=${state} | 누적="${currentTranscript.value}" | Q${questionIndex.value}`,
-    );
+    console.log(`[STT] 상태=${state} | 누적="${currentTranscript.value}" | Q${questionIndex.value}`);
   }, 10000);
 
   // AudioWorklet 기반 음성 특징 분석 (실패해도 STT/면접 진행에 영향 없음)
