@@ -481,6 +481,7 @@ let speechRecognition = null;
 let sttStatusInterval = null;
 let pendingAudioWindows = [];
 let pendingTranscript = "";
+let currentInterim = "";
 let currentQuestionAnswered = false;
 const activeSessionId = ref(String(route.query.sessionId || localStorage.getItem("sessionId") || ""));
 const activeUserId = ref(String(localStorage.getItem("userId") || "1"));
@@ -871,16 +872,24 @@ const initSpeechRecognition = () => {
   speechRecognition = new SR();
   speechRecognition.lang = "ko-KR";
   speechRecognition.continuous = true;
-  speechRecognition.interimResults = false;
+  speechRecognition.interimResults = true;
   speechRecognition.maxAlternatives = 1;
 
   speechRecognition.onresult = (event) => {
+    let interim = "";
     for (let i = event.resultIndex; i < event.results.length; i++) {
-      const text = event.results[i][0].transcript;
-      currentTranscript.value += text;
-      pendingTranscript += text;
-      console.log(`[STT] +${text.length}자: "${text}" | 누적: "${currentTranscript.value}" | pending: "${pendingTranscript}"`);
+      if (event.results[i].isFinal) {
+        const text = event.results[i][0].transcript;
+        currentTranscript.value += text;
+        pendingTranscript += text;
+        interim = "";
+        console.log(`[STT] final +${text.length}자: "${text}" | 누적: "${currentTranscript.value}" | pending: "${pendingTranscript}"`);
+      } else {
+        interim += event.results[i][0].transcript;
+      }
     }
+    currentInterim = interim;
+    if (interim) console.log(`[STT] interim: "${currentTranscript.value}${interim}"`);
   };
 
   speechRecognition.onend = () => {
@@ -1164,7 +1173,7 @@ const startAudioTransmission = () => {
     if (pendingAudioWindows.length === 0 && !pendingTranscript) return;
 
     const windows = pendingAudioWindows.splice(0);
-    const transcript = pendingTranscript.trim();
+    const transcript = (pendingTranscript + currentInterim).trim();
     const sent = sendStompJson("/app/realtime.audio", {
       sessionId: activeSessionId.value,
       userId: activeUserId.value,
@@ -1248,6 +1257,7 @@ const resetAudioAccumulator = () => {
   currentTranscript.value = "";
   pendingAudioWindows = [];
   pendingTranscript = "";
+  currentInterim = "";
 };
 
 const submitCurrentAnswer = () => {
