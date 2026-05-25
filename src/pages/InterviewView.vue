@@ -479,6 +479,7 @@ let micStream = null;
 let micIsStopped = false;
 let speechRecognition = null;
 let pendingInterim = "";
+let sttStatusInterval = null;
 let pendingAudioWindows = [];
 const activeSessionId = ref(String(route.query.sessionId || localStorage.getItem("sessionId") || ""));
 const activeUserId = ref(String(localStorage.getItem("userId") || "1"));
@@ -869,20 +870,26 @@ const initSpeechRecognition = () => {
     let interim = "";
     for (let i = event.resultIndex; i < event.results.length; i++) {
       if (event.results[i].isFinal) {
-        currentTranscript.value += event.results[i][0].transcript;
+        const text = event.results[i][0].transcript;
+        currentTranscript.value += text;
         interim = "";
+        console.log(`[STT] final: "${text}" | 누적: "${currentTranscript.value}"`);
       } else {
         interim += event.results[i][0].transcript;
       }
     }
+    if (interim) console.log(`[STT] interim: "${interim}"`);
     pendingInterim = interim;
   };
 
   // onend 발생 시 isFinal 없이 소멸할 interim 결과를 먼저 커밋
   speechRecognition.onend = () => {
     if (pendingInterim) {
+      console.log(`[STT] onend interim 커밋: "${pendingInterim}"`);
       currentTranscript.value += pendingInterim;
       pendingInterim = "";
+    } else {
+      console.log("[STT] onend — 재시작");
     }
     if (micIsStopped) return;
     setTimeout(() => {
@@ -896,8 +903,8 @@ const initSpeechRecognition = () => {
   };
 
   speechRecognition.onerror = (event) => {
+    console.warn(`[STT] error: ${event.error}`);
     if (event.error === "not-allowed" || event.error === "service-not-allowed") {
-      console.warn("SpeechRecognition 권한 오류:", event.error);
       micIsStopped = true;
     }
     // no-speech / network 오류는 onend에서 재시작 처리
@@ -905,6 +912,7 @@ const initSpeechRecognition = () => {
 
   micIsStopped = false;
   speechRecognition.start();
+  console.log("[STT] 시작");
 };
 
 const initMicStream = async () => {
@@ -1368,6 +1376,10 @@ onMounted(async () => {
 
   // STT는 AudioWorklet과 독립적으로 시작 (SpeechRecognition은 자체 마이크 관리)
   initSpeechRecognition();
+  sttStatusInterval = setInterval(() => {
+    const state = speechRecognition ? (micIsStopped ? "stopped" : "running") : "not-initialized";
+    console.log(`[STT] 상태=${state} | 누적="${currentTranscript.value}" | interim="${pendingInterim}" | Q${questionIndex.value}`);
+  }, 10000);
 
   // AudioWorklet 기반 음성 특징 분석 (실패해도 STT/면접 진행에 영향 없음)
   initMicStream();
@@ -1375,6 +1387,7 @@ onMounted(async () => {
 
 onUnmounted(() => {
   if (timerInterval) clearInterval(timerInterval);
+  if (sttStatusInterval) clearInterval(sttStatusInterval);
   if (imageStreamingInterval) clearInterval(imageStreamingInterval);
   if (audioRealtimeInterval) clearInterval(audioRealtimeInterval);
   if (audioFeedbackTimer) clearTimeout(audioFeedbackTimer);
