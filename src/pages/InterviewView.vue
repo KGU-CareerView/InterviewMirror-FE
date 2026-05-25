@@ -892,7 +892,7 @@ const initSpeechRecognition = () => {
     }
     currentInterim = interim;
     if (interim) console.log(`[STT] interim: "${currentTranscript.value}${interim}"`);
-    pendingTranscript += interim;
+    pendingTranscript = currentInterim;
   };
 
   speechRecognition.onend = () => {
