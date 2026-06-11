@@ -58,7 +58,7 @@
       <div
         class="absolute top-4 left-4 bg-black/50 backdrop-blur-md rounded-2xl px-3.5 py-3 border border-white/10 min-w-[88px]"
       >
-        <p class="text-[9px] font-bold text-white/50 uppercase tracking-widest mb-2.5">감정 분석</p>
+        <p class="text-sm font-bold text-white/50 uppercase tracking-widest mb-2.5">감정 분석</p>
         <div class="space-y-2">
           <div class="flex items-center gap-2">
             <span class="relative flex h-2.5 w-2.5 shrink-0">
@@ -72,8 +72,8 @@
               ></span>
             </span>
             <span
-              class="text-xs transition-all duration-300"
-              :class="currentEmotion === 'Stable' ? 'font-bold text-brandLight' : 'font-medium text-white/40'"
+              class="text-sm transition-all duration-300"
+              :class="currentEmotion === 'Stable' ? 'font-bold text-brand' : 'font-medium text-white/40'"
               >안정</span
             >
           </div>
@@ -89,7 +89,7 @@
               ></span>
             </span>
             <span
-              class="text-xs transition-all duration-300"
+              class="text-sm transition-all duration-300"
               :class="currentEmotion === 'Neutral' ? 'font-bold text-white' : 'font-medium text-white/40'"
               >무표정</span
             >
@@ -106,7 +106,7 @@
               ></span>
             </span>
             <span
-              class="text-xs transition-all duration-300"
+              class="text-sm transition-all duration-300"
               :class="currentEmotion === 'Nervous' ? 'font-bold text-red-400' : 'font-medium text-white/40'"
               >긴장</span
             >
@@ -118,10 +118,10 @@
       <div class="absolute top-4 left-1/2 -translate-x-1/2 w-[52%] max-w-2xl pointer-events-none">
         <div class="bg-black/55 backdrop-blur-md rounded-2xl px-5 py-3.5 border border-white/10 shadow-xl">
           <div class="flex items-start gap-3">
-            <span class="shrink-0 mt-0.5 px-2 py-0.5 bg-brand text-white text-[10px] font-black rounded-md">
+            <span class="shrink-0 mt-0.5 px-2 py-0.5 bg-brand text-white text-sm font-black rounded-md">
               Q{{ questionIndex }}/{{ totalQuestions }}
             </span>
-            <p class="text-sm font-semibold text-white leading-relaxed break-keep">{{ currentQuestion }}</p>
+            <p class="text-base font-semibold text-white leading-relaxed break-keep">{{ currentQuestion }}</p>
           </div>
         </div>
       </div>
@@ -141,7 +141,7 @@
         >
           <div
             v-if="currentEmotion === 'Nervous'"
-            class="bg-black/75 backdrop-blur-md text-white px-5 py-2.5 rounded-full border border-red-500/40 text-sm font-medium flex items-center gap-2.5 shadow-lg"
+            class="bg-black/75 backdrop-blur-md text-white px-5 py-2.5 rounded-full border border-red-500/40 text-base font-medium flex items-center gap-2.5 shadow-lg"
           >
             <span class="text-red-400">⚠️</span>
             긴장이 감지됩니다. 심호흡을 하고 편안하게 답변해 보세요.
@@ -159,7 +159,7 @@
         >
           <div
             v-if="showWarning && warningMessage && currentEmotion !== 'Nervous'"
-            class="bg-black/75 backdrop-blur-md text-yellow-300 px-5 py-2.5 rounded-full border border-yellow-500/30 text-sm font-medium shadow-lg"
+            class="bg-black/75 backdrop-blur-md text-yellow-300 px-5 py-2.5 rounded-full border border-yellow-500/30 text-base font-medium shadow-lg"
           >
             {{ warningMessage }}
           </div>
@@ -176,7 +176,7 @@
         >
           <div
             v-if="showAudioFeedback"
-            class="bg-black/75 backdrop-blur-md px-5 py-2.5 rounded-full border text-sm font-medium flex items-center gap-2 shadow-lg"
+            class="bg-black/75 backdrop-blur-md px-5 py-2.5 rounded-full border text-base font-medium flex items-center gap-2 shadow-lg"
             :class="audioFeedbackIsGood ? 'border-green-500/40 text-green-300' : 'border-yellow-500/40 text-yellow-300'"
           >
             <svg
@@ -206,11 +206,11 @@
     <footer
       class="w-full h-16 bg-brandLight/40 flex items-center justify-between px-8 border-t border-brandLight/60 shrink-0"
     >
-      <p class="text-sm text-gray-500">답변을 마치면 오른쪽 버튼을 눌러주세요.</p>
+      <p class="text-[15px] text-gray-500">답변을 마치면 오른쪽 버튼을 눌러주세요.</p>
       <button
         @click="handleAnswerButtonClick"
         :disabled="isWaitingForQuestion"
-        class="px-6 py-2 bg-brand hover:bg-brandHover text-white rounded-lg font-bold text-sm transition-colors duration-200 flex items-center gap-2"
+        class="px-6 py-2 bg-brand hover:bg-brandHover text-white rounded-lg font-bold text-base transition-colors duration-200 flex items-center gap-2"
         :class="isWaitingForQuestion ? 'opacity-50 cursor-not-allowed' : ''"
       >
         {{ answerButtonLabel }}
