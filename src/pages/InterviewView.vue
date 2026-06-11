@@ -439,6 +439,10 @@ const currentQuestion = ref("AI 서버로부터 면접 질문을 구성하고 �
 const questionIndex = ref(1);
 const totalQuestions = ref(5);
 const isWaitingForQuestion = ref(true);
+// 세션 시작 시 한 번에 받은 초기 질문 목록 (꼬리물기 질문 생성 전까지 이 목록에서 순차적으로 사용)
+const questionList = ref([]);
+// AI가 마지막 질문의 답변을 바탕으로 생성한 꼬리물기 질문 단계인지 여부
+const isFollowUpQuestion = ref(false);
 
 // 타이머 변수
 const timerSeconds = ref(0);
@@ -510,7 +514,8 @@ const cameraActionLabel = computed(() => {
   return isCameraReady.value ? "카메라 연결됨" : "카메라 권한 허용";
 });
 
-const isLastQuestion = computed(() => questionIndex.value >= totalQuestions.value);
+// 꼬리물기 질문(마지막 질문에 대한 AI 후속 질문)까지 답변을 마쳐야 진짜 마지막 질문
+const isLastQuestion = computed(() => isFollowUpQuestion.value);
 const answerButtonLabel = computed(() => {
   if (isWaitingForQuestion.value) return "질문 준비 중...";
   return isLastQuestion.value ? "답변 완료 / 결과 보기" : "답변 완료 / 다음";
@@ -694,9 +699,11 @@ const applyEmotionResult = (label, feedback = "") => {
 
 const handleQuestionEvent = (payload) => {
   if (payload.type === "INITIAL_QUESTIONS_READY") {
-    currentQuestion.value = payload.firstQuestion || payload.questions?.[0]?.question || "첫 질문을 불러왔습니다.";
+    questionList.value = payload.questions || [];
+    currentQuestion.value = payload.firstQuestion || questionList.value[0]?.question || "첫 질문을 불러왔습니다.";
     questionIndex.value = 1;
-    totalQuestions.value = payload.questions?.length || totalQuestions.value;
+    totalQuestions.value = questionList.value.length || totalQuestions.value;
+    isFollowUpQuestion.value = false;
     currentQuestionAnswered = false;
     isWaitingForQuestion.value = false;
     startFrameTransmission();
@@ -706,9 +713,10 @@ const handleQuestionEvent = (payload) => {
 
   if (payload.type === "NEXT_QUESTION") {
     if (isFinishing) return;
-    if (questionIndex.value < totalQuestions.value) {
-      questionIndex.value += 1;
-    }
+    // 마지막 직전 질문의 답변을 바탕으로 생성된 꼬리물기 질문 — 전체 질문 수(totalQuestions)는 그대로 유지하고
+    // 이 질문이 N번째(진짜 마지막) 질문이 됨
+    questionIndex.value += 1;
+    isFollowUpQuestion.value = true;
     currentQuestion.value = payload.question || "다음 질문을 불러왔습니다.";
     currentQuestionAnswered = false;
     isWaitingForQuestion.value = false;
@@ -1263,21 +1271,23 @@ const resetAudioAccumulator = () => {
   currentInterim = "";
 };
 
-const submitCurrentAnswer = () => {
+const submitCurrentAnswer = ({ requestNextQuestion: shouldRequestNext = false } = {}) => {
   if (currentQuestionAnswered) {
     console.warn("[ANSWER] 이미 제출된 질문 — 중복 전송 차단");
     return false;
   }
   if (stompConnected) {
     currentQuestionAnswered = true;
-    isWaitingForQuestion.value = true;
+    isWaitingForQuestion.value = shouldRequestNext;
     const audioSummary = isMicReady.value ? calculateAudioSummary() : null;
     const answer = currentTranscript.value.trim();
     return sendStompJson("/app/session.answer", {
       sessionId: Number(activeSessionId.value),
+      question: currentQuestion.value,
       answer,
       emotionResult: String(currentEmotion.value).toUpperCase(),
       responseTimeSeconds: timerSeconds.value,
+      requestNextQuestion: shouldRequestNext,
       ...(audioSummary && { audioSummary }),
     });
   }
@@ -1286,9 +1296,22 @@ const submitCurrentAnswer = () => {
 };
 
 // 4. 다음 질문 넘어가기 컨트롤 인터랙션
+// 4-1. 사전에 생성된 초기 질문 목록에서 다음 질문으로 즉시 이동 (AI 호출 없이 진행)
+const advanceToNextQuestion = () => {
+  submitCurrentAnswer();
+
+  questionIndex.value += 1;
+  const nextQuestion = questionList.value[questionIndex.value - 1];
+  currentQuestion.value = nextQuestion?.question || "다음 질문을 불러왔습니다.";
+  currentQuestionAnswered = false;
+  isWaitingForQuestion.value = false;
+  resetAudioAccumulator();
+};
+
+// 4-2. 초기 질문 목록의 마지막 직전(N-1번째) 질문 답변 시 AI에게 꼬리물기 질문(N번째) 생성을 요청
 const requestNextQuestion = () => {
   if (stompConnected) {
-    submitCurrentAnswer();
+    submitCurrentAnswer({ requestNextQuestion: true });
     return;
   }
 
@@ -1308,7 +1331,13 @@ const handleAnswerButtonClick = () => {
     return;
   }
 
-  requestNextQuestion();
+  // N-1번째 질문까지는 사전 생성된 목록을 그대로 사용하고,
+  // N-1번째 질문의 답변 시점에만 꼬리물기 질문(N번째)을 요청한다.
+  if (questionIndex.value < totalQuestions.value - 1) {
+    advanceToNextQuestion();
+  } else {
+    requestNextQuestion();
+  }
 };
 
 const stopCamera = () => {
